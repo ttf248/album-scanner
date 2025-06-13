@@ -219,24 +219,12 @@ class PhotoAlbumApp:
             # 获取第一张图片作为封面
             cover_path = image_files[0]
             
-            # 创建相册封面框架
-            # 创建相册封面框架 - 现代卡片式设计
             # 创建相册封面框架 - 现代卡片式设计
             album_frame = ttk.Frame(self.inner_frame, padding="15", relief=tk.FLAT, style='Card.TFrame')
             album_frame.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
             album_frame.bind('<Enter>', lambda e, f=album_frame: self.on_enter(e, f))
             album_frame.bind('<Leave>', lambda e, f=album_frame: self.on_leave(e, f))
 
-            # 添加卡片悬停动画
-            album_frame.bind('<Enter>', lambda e, f=album_frame: self.on_enter(e, f))
-            album_frame.bind('<Leave>', lambda e, f=album_frame: self.on_leave(e, f))
-
-            # 设置卡片圆角和阴影效果
-            if platform.system() == 'Windows':
-                album_frame.configure(relief=tk.FLAT, borderwidth=0)
-                # 添加圆角效果
-                self.canvas.create_rounded_rectangle(album_frame, radius=10)
-            
             # 加载并调整封面图片大小
             try:
                 img = Image.open(cover_path)
@@ -249,7 +237,6 @@ class PhotoAlbumApp:
                 cover_label.bind("<Button-1>", lambda e, f=folder: self.open_album(f))
                 cover_label.pack(pady=5)
                 
-                # 添加文件夹名称标签
                 # 添加文件夹名称标签
                 name_label = ttk.Label(album_frame, text=folder_name, wraplength=200, font=('Microsoft YaHei', 10, 'bold'))
                 name_label.pack(pady=10)
@@ -317,16 +304,6 @@ class PhotoAlbumApp:
     def on_motion(self, event, frame):
         """鼠标在卡片上移动时的效果"""
         pass
-
-    def create_rounded_rectangle(self, widget, radius=10):
-        """为控件添加圆角效果"""
-        x1, y1, x2, y2 = widget.winfo_x(), widget.winfo_y(), widget.winfo_x()+widget.winfo_width(), widget.winfo_y()+widget.winfo_height()
-        self.canvas.create_arc(x1, y1, x1+2*radius, y1+2*radius, start=90, extent=90, fill=self.card_bg, outline='')
-        self.canvas.create_arc(x2-2*radius, y1, x2, y1+2*radius, start=0, extent=90, fill=self.card_bg, outline='')
-        self.canvas.create_arc(x1, y2-2*radius, x1+2*radius, y2, start=180, extent=90, fill=self.card_bg, outline='')
-        self.canvas.create_arc(x2-2*radius, y2-2*radius, x2, y2, start=270, extent=90, fill=self.card_bg, outline='')
-        self.canvas.create_rectangle(x1+radius, y1, x2-radius, y2, fill=self.card_bg, outline='')
-        self.canvas.create_rectangle(x1, y1+radius, x2, y2-radius, fill=self.card_bg, outline='')
 
     def update_shadow(self, event, frame):
         """更新卡片阴影效果"""
