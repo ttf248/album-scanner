@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
+from tkinter import filedialog, ttk, messagebox, Toplevel
 import os
-from image_utils import ImageProcessor
+from image_utils import ImageProcessor, SlideshowManager
 
 class StyleManager:
     """样式管理器，负责应用程序的外观样式"""
@@ -74,14 +74,46 @@ class StyleManager:
                       bordercolor=[('focus', self.accent_color)])
         self.style.configure('TRadiobutton', background=self.bg_color, foreground=self.text_color)
 
+class StatusBar:
+    """状态栏组件"""
+    
+    def __init__(self, parent):
+        self.parent = parent
+        self.create_widgets()
+        
+    def create_widgets(self):
+        self.status_frame = ttk.Frame(self.parent, style='Card.TFrame')
+        self.status_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        
+        self.status_var = tk.StringVar(value="就绪")
+        self.status_label = ttk.Label(self.status_frame, textvariable=self.status_var, 
+                                     font=('Microsoft YaHei', 9))
+        self.status_label.pack(side=tk.LEFT, padx=10, pady=5)
+        
+        # 右侧信息
+        self.info_var = tk.StringVar()
+        self.info_label = ttk.Label(self.status_frame, textvariable=self.info_var, 
+                                   font=('Microsoft YaHei', 9))
+        self.info_label.pack(side=tk.RIGHT, padx=10, pady=5)
+    
+    def set_status(self, message):
+        """设置状态信息"""
+        self.status_var.set(message)
+    
+    def set_info(self, info):
+        """设置右侧信息"""
+        self.info_var.set(info)
+
 class NavigationBar:
     """导航栏组件"""
     
-    def __init__(self, parent, on_browse, on_scan, path_var):
+    def __init__(self, parent, on_browse, on_scan, path_var, on_recent, on_favorites):
         self.parent = parent
         self.on_browse = on_browse
         self.on_scan = on_scan
         self.path_var = path_var
+        self.on_recent = on_recent
+        self.on_favorites = on_favorites
         self.create_widgets()
     
     def create_widgets(self):
@@ -93,6 +125,18 @@ class NavigationBar:
         title_label = ttk.Label(self.nav_frame, text="相册扫描器", 
                                font=('Microsoft YaHei', 16, 'bold'))
         title_label.pack(side=tk.LEFT, padx=10)
+
+        # 功能按钮
+        func_frame = ttk.Frame(self.nav_frame)
+        func_frame.pack(side=tk.LEFT, padx=20)
+        
+        recent_btn = ttk.Button(func_frame, text="最近浏览", command=self.on_recent, 
+                               width=8, style="Custom.TButton")
+        recent_btn.pack(side=tk.LEFT, padx=5)
+        
+        fav_btn = ttk.Button(func_frame, text="收藏夹", command=self.on_favorites, 
+                            width=8, style="Custom.TButton")
+        fav_btn.pack(side=tk.LEFT, padx=5)
 
         # 路径选择区域
         path_frame = ttk.Frame(self.nav_frame)
@@ -116,9 +160,10 @@ class NavigationBar:
 class AlbumGrid:
     """相册网格显示组件"""
     
-    def __init__(self, parent, on_album_click):
+    def __init__(self, parent, on_album_click, on_favorite_toggle):
         self.parent = parent
         self.on_album_click = on_album_click
+        self.on_favorite_toggle = on_favorite_toggle
         self.max_cols = 4
         self.create_widgets()
     
@@ -200,10 +245,23 @@ class AlbumGrid:
                               font=('Microsoft YaHei', 10, 'bold'))
         name_label.pack(pady=10)
 
-        # 图片数量
-        count_label = ttk.Label(album_frame, text=f"{len(album['image_files'])}张图片", 
+        # 图片数量和大小
+        info_text = f"{album.get('image_count', len(album['image_files']))}张图片"
+        if 'folder_size' in album:
+            info_text += f" • {album['folder_size']}"
+        count_label = ttk.Label(album_frame, text=info_text, 
                                font=('Microsoft YaHei', 9), foreground='#666666')
         count_label.pack(pady=2)
+        
+        # 收藏按钮
+        fav_btn = ttk.Button(album_frame, text="★" if self.is_favorite(album['path']) else "☆", 
+                            command=lambda: self.on_favorite_toggle(album['path']),
+                            width=3)
+        fav_btn.pack(pady=5)
+    
+    def is_favorite(self, album_path):
+        """检查是否为收藏（需要从主应用获取）"""
+        return False  # 默认实现，实际使用时会被重写
     
     def on_enter(self, event, frame):
         """鼠标悬停效果"""
@@ -216,12 +274,16 @@ class AlbumGrid:
 class ImageViewer:
     """图片查看器组件"""
     
-    def __init__(self, parent, image_files):
+    def __init__(self, parent, image_files, config_manager=None):
         self.parent = parent
         self.image_files = image_files
         self.current_index = 0
-        self.zoom_mode = tk.StringVar(value="fit")
+        self.config_manager = config_manager
+        self.zoom_mode = tk.StringVar(value=config_manager.get_zoom_mode() if config_manager else "fit")
         self.status_var = tk.StringVar()
+        self.rotation = 0
+        self.slideshow = SlideshowManager(self)
+        self.fullscreen = False
         
         self.create_widgets()
         self.bind_events()
@@ -232,16 +294,43 @@ class ImageViewer:
         main_frame = ttk.Frame(self.parent)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
+        # 工具栏
+        toolbar_frame = ttk.Frame(main_frame)
+        toolbar_frame.pack(fill=tk.X, pady=5)
+        
         # 导航按钮
-        nav_frame = ttk.Frame(main_frame)
-        nav_frame.pack(fill=tk.X, pady=10)
+        nav_frame = ttk.Frame(toolbar_frame)
+        nav_frame.pack(side=tk.LEFT)
         
         ttk.Button(nav_frame, text="上一张", command=self.prev_image, 
-                  style="Custom.TButton").pack(side=tk.LEFT, padx=10)
+                  style="Custom.TButton").pack(side=tk.LEFT, padx=2)
         ttk.Button(nav_frame, text="下一张", command=self.next_image, 
-                  style="Custom.TButton").pack(side=tk.LEFT, padx=10)
+                  style="Custom.TButton").pack(side=tk.LEFT, padx=2)
         
-        ttk.Label(nav_frame, textvariable=self.status_var).pack(side=tk.LEFT, padx=10)
+        # 旋转按钮
+        rotate_frame = ttk.Frame(toolbar_frame)
+        rotate_frame.pack(side=tk.LEFT, padx=20)
+        
+        ttk.Button(rotate_frame, text="↺", command=self.rotate_left, 
+                  width=3, style="Custom.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(rotate_frame, text="↻", command=self.rotate_right, 
+                  width=3, style="Custom.TButton").pack(side=tk.LEFT, padx=2)
+        
+        # 幻灯片控制
+        slideshow_frame = ttk.Frame(toolbar_frame)
+        slideshow_frame.pack(side=tk.LEFT, padx=20)
+        
+        self.play_btn = ttk.Button(slideshow_frame, text="播放", command=self.toggle_slideshow, 
+                                  style="Custom.TButton")
+        self.play_btn.pack(side=tk.LEFT, padx=2)
+        
+        # EXIF按钮
+        ttk.Button(slideshow_frame, text="信息", command=self.show_exif, 
+                  style="Custom.TButton").pack(side=tk.LEFT, padx=2)
+        
+        # 状态显示
+        ttk.Label(toolbar_frame, textvariable=self.status_var, 
+                 font=('Microsoft YaHei', 10)).pack(side=tk.RIGHT, padx=10)
 
         # 图片显示区域
         self.image_frame = ttk.Frame(main_frame)
@@ -262,26 +351,95 @@ class ImageViewer:
         zoom_frame.pack(fill=tk.X, pady=2)
         ttk.Label(zoom_frame, text="缩放模式:").pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(zoom_frame, text="适应窗口", variable=self.zoom_mode, 
-                       value="fit", command=self.load_image).pack(side=tk.LEFT)
+                       value="fit", command=self.on_zoom_change).pack(side=tk.LEFT)
         ttk.Radiobutton(zoom_frame, text="原始大小", variable=self.zoom_mode, 
-                       value="original", command=self.load_image).pack(side=tk.LEFT)
+                       value="original", command=self.on_zoom_change).pack(side=tk.LEFT)
         ttk.Radiobutton(zoom_frame, text="填充", variable=self.zoom_mode, 
-                       value="fill", command=self.load_image).pack(side=tk.LEFT)
+                       value="fill", command=self.on_zoom_change).pack(side=tk.LEFT)
     
     def bind_events(self):
         """绑定键盘事件"""
         self.parent.bind("<Left>", lambda e: self.prev_image())
         self.parent.bind("<Right>", lambda e: self.next_image())
-        self.parent.bind("<Escape>", lambda e: self.parent.destroy())
+        self.parent.bind("<Escape>", lambda e: self.exit_fullscreen() if self.fullscreen else self.parent.destroy())
+        self.parent.bind("<F11>", lambda e: self.toggle_fullscreen())
+        self.parent.bind("<space>", lambda e: self.toggle_slideshow())
         self.parent.bind("f", lambda e: self.set_zoom_mode("fit"))
         self.parent.bind("o", lambda e: self.set_zoom_mode("original"))
         self.parent.bind("l", lambda e: self.set_zoom_mode("fill"))
-        self.parent.focus_set()  # 确保窗口能接收键盘事件
+        self.parent.bind("r", lambda e: self.rotate_right())
+        self.parent.bind("i", lambda e: self.show_exif())
+        self.parent.focus_set()
     
-    def set_zoom_mode(self, mode):
-        """设置缩放模式"""
-        self.zoom_mode.set(mode)
+    def on_zoom_change(self):
+        """缩放模式改变时保存配置"""
+        if self.config_manager:
+            self.config_manager.set_zoom_mode(self.zoom_mode.get())
         self.load_image()
+    
+    def toggle_fullscreen(self):
+        """切换全屏模式"""
+        if self.fullscreen:
+            self.exit_fullscreen()
+        else:
+            self.parent.attributes('-fullscreen', True)
+            self.fullscreen = True
+    
+    def exit_fullscreen(self):
+        """退出全屏"""
+        self.parent.attributes('-fullscreen', False)
+        self.fullscreen = False
+    
+    def rotate_left(self):
+        """向左旋转90度"""
+        self.rotation = (self.rotation - 90) % 360
+        self.load_image()
+    
+    def rotate_right(self):
+        """向右旋转90度"""
+        self.rotation = (self.rotation + 90) % 360
+        self.load_image()
+    
+    def toggle_slideshow(self):
+        """切换幻灯片播放"""
+        if self.slideshow.is_playing:
+            self.slideshow.stop_slideshow()
+            self.play_btn.config(text="播放")
+        else:
+            self.slideshow.start_slideshow()
+            self.play_btn.config(text="暂停")
+    
+    def show_exif(self):
+        """显示EXIF信息"""
+        if not (0 <= self.current_index < len(self.image_files)):
+            return
+        
+        image_path = self.image_files[self.current_index]
+        exif_data = ImageProcessor.get_image_exif(image_path)
+        
+        # 创建EXIF信息窗口
+        exif_window = Toplevel(self.parent)
+        exif_window.title("图片信息")
+        exif_window.geometry("400x600")
+        exif_window.resizable(False, False)
+        
+        # 创建滚动文本框
+        text_frame = ttk.Frame(exif_window)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        text_widget = tk.Text(text_frame, wrap=tk.WORD, font=('Microsoft YaHei', 9))
+        scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scrollbar.set)
+        
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 显示EXIF信息
+        text_widget.insert(tk.END, f"文件路径: {image_path}\n\n")
+        for key, value in exif_data.items():
+            text_widget.insert(tk.END, f"{key}: {value}\n")
+        
+        text_widget.config(state=tk.DISABLED)
 
     def load_image(self):
         """加载当前图片"""
@@ -297,14 +455,23 @@ class ImageViewer:
         if window_height < 10: 
             window_height = 500
         
-        photo, width, height = ImageProcessor.load_image_with_mode(
-            image_path, window_width, window_height, self.zoom_mode.get())
+        result = ImageProcessor.load_image_with_mode(
+            image_path, window_width, window_height, self.zoom_mode.get(), self.rotation)
         
-        if photo:
+        if result[0]:  # photo存在
+            photo, width, height, orig_width, orig_height = result
             self.image_label.config(image=photo, text="")
             self.image_label.image = photo
             self.status_var.set(f"{self.current_index + 1}/{len(self.image_files)}")
-            self.image_info.config(text=f"{os.path.basename(image_path)} ({width}×{height})")
+            
+            # 显示详细信息
+            size_info = f"显示: {width}×{height}"
+            if self.zoom_mode.get() != "original":
+                size_info += f" (原始: {orig_width}×{orig_height})"
+            if self.rotation != 0:
+                size_info += f" 旋转: {self.rotation}°"
+            
+            self.image_info.config(text=f"{os.path.basename(image_path)} - {size_info}")
         else:
             self.image_label.config(text="无法加载图片", image="")
             self.image_label.image = None
