@@ -3,6 +3,8 @@ from tkinter import filedialog, ttk, messagebox, Toplevel
 import os
 from image_utils import ImageProcessor, SlideshowManager
 from PIL import Image, ImageTk
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 def get_safe_font(font_family, size, style=None):
     """获取安全的字体配置"""
@@ -253,6 +255,10 @@ class AlbumGrid:
         self.is_favorite = None  # 由外部设置
         self.nav_bar = None  # 导航栏引用
         
+        # 封面缓存
+        self.cover_cache = {}  # 缓存封面图片
+        self.executor = ThreadPoolExecutor(max_workers=3)  # 线程池用于异步加载封面
+        
         # 确保初始化grid_frame
         self.grid_frame = None
         self.canvas = None
@@ -336,8 +342,76 @@ class AlbumGrid:
         except Exception as e:
             print(f"显示空状态时出错: {e}")
         
+    def _load_cover_image(self, album_path, callback):
+        """异步加载封面图片"""
+        def load_cover():
+            try:
+                # 查找相册中的第一张图片作为封面
+                image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
+                
+                for file in os.listdir(album_path):
+                    if any(file.lower().endswith(ext) for ext in image_extensions):
+                        cover_path = os.path.join(album_path, file)
+                        
+                        # 检查缓存
+                        if cover_path in self.cover_cache:
+                            callback(self.cover_cache[cover_path])
+                            return
+                        
+                        # 加载并调整图片大小
+                        with Image.open(cover_path) as img:
+                            # 创建缩略图 (120x120)
+                            img.thumbnail((120, 120), Image.Resampling.LANCZOS)
+                            
+                            # 创建圆角效果的背景
+                            bg = Image.new('RGBA', (120, 120), (242, 242, 247, 255))
+                            
+                            # 计算居中位置
+                            img_w, img_h = img.size
+                            x = (120 - img_w) // 2
+                            y = (120 - img_h) // 2
+                            
+                            # 确保图片有alpha通道
+                            if img.mode != 'RGBA':
+                                img = img.convert('RGBA')
+                            
+                            # 粘贴到背景上
+                            bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+                            
+                            # 转换为PhotoImage
+                            photo = ImageTk.PhotoImage(bg)
+                            
+                            # 缓存图片
+                            self.cover_cache[cover_path] = photo
+                            
+                            # 回调显示
+                            callback(photo)
+                            return
+                
+                # 如果没有找到图片，返回默认图标
+                callback(None)
+                
+            except Exception as e:
+                print(f"加载封面失败 {album_path}: {e}")
+                callback(None)
+        
+        # 在线程池中执行
+        self.executor.submit(load_cover)
+    
+    def _create_default_cover(self):
+        """创建默认封面图标"""
+        try:
+            # 创建默认的文件夹图标
+            img = Image.new('RGBA', (120, 120), (242, 242, 247, 255))
+            
+            # 这里可以添加文件夹图标的绘制逻辑
+            # 暂时使用纯色背景
+            return ImageTk.PhotoImage(img)
+        except:
+            return None
+
     def display_albums(self, albums):
-        """显示相册（带滚动支持）"""
+        """显示相册（带滚动支持和封面）"""
         try:
             # 确保组件存在
             if not hasattr(self, 'scrollable_frame') or self.scrollable_frame is None:
@@ -374,57 +448,89 @@ class AlbumGrid:
                     if not album_path:
                         continue
                     
-                    # 创建相册卡片
+                    # 创建相册卡片 - 增加高度以容纳封面
                     album_frame = tk.Frame(self.scrollable_frame, bg='white', relief='solid', bd=1)
                     album_frame.pack(fill='x', padx=15, pady=8)
                     
-                    # 相册信息
-                    info_frame = tk.Frame(album_frame, bg='white')
-                    info_frame.pack(fill='x', padx=15, pady=12)
+                    # 主要内容框架 - 使用水平布局
+                    main_frame = tk.Frame(album_frame, bg='white')
+                    main_frame.pack(fill='x', padx=15, pady=15)
+                    
+                    # 左侧封面区域
+                    cover_frame = tk.Frame(main_frame, bg='white', width=120, height=120)
+                    cover_frame.pack(side='left', padx=(0, 15))
+                    cover_frame.pack_propagate(False)  # 保持固定大小
+                    
+                    # 封面占位符
+                    cover_label = tk.Label(cover_frame, text="📁", 
+                                         font=get_safe_font('Arial', 48),
+                                         bg='#F2F2F7', fg='#8E8E93',
+                                         width=120, height=120, cursor='hand2')
+                    cover_label.pack(fill='both')
+                    
+                    # 封面点击事件 - 预览相册
+                    cover_label.bind('<Button-1>', 
+                                   lambda e, path=album_path: self.open_callback(path))
+                    
+                    # 右侧信息区域
+                    info_frame = tk.Frame(main_frame, bg='white')
+                    info_frame.pack(side='left', fill='both', expand=True)
                     
                     # 名称
                     name_label = tk.Label(info_frame, text=album_name, 
-                                         font=get_safe_font('Arial', 14, 'bold'), 
-                                         bg='white', fg='black')
-                    name_label.pack(anchor='w')
+                                         font=get_safe_font('Arial', 16, 'bold'), 
+                                         bg='white', fg='black', anchor='w')
+                    name_label.pack(fill='x', pady=(0, 5))
                     
                     # 统计信息
-                    stats_text = f"{image_count} 张图片"
+                    stats_text = f"📷 {image_count} 张图片"
                     if 'folder_size' in album and album['folder_size']:
-                        stats_text += f" • {album['folder_size']}"
+                        stats_text += f"  💾 {album['folder_size']}"
                     stats_label = tk.Label(info_frame, text=stats_text, 
                                           font=get_safe_font('Arial', 12), 
-                                          bg='white', fg='gray')
-                    stats_label.pack(anchor='w', pady=(2, 0))
+                                          bg='white', fg='#6D6D80', anchor='w')
+                    stats_label.pack(fill='x', pady=(0, 5))
+                    
+                    # 路径信息
+                    path_text = f"📁 {album_path}"
+                    if len(path_text) > 60:
+                        path_text = path_text[:57] + "..."
+                    path_label = tk.Label(info_frame, text=path_text, 
+                                         font=get_safe_font('Arial', 10), 
+                                         bg='white', fg='#8E8E93', anchor='w')
+                    path_label.pack(fill='x', pady=(0, 10))
                     
                     # 按钮框架
                     btn_frame = tk.Frame(info_frame, bg='white')
-                    btn_frame.pack(anchor='w', pady=(8, 0))
+                    btn_frame.pack(fill='x')
                     
-                    # 打开按钮
-                    open_btn = tk.Button(btn_frame, text="打开", 
-                                       font=get_safe_font('Arial', 10), 
+                    # 打开按钮 - 增大尺寸
+                    open_btn = tk.Button(btn_frame, text="🔍 打开相册", 
+                                       font=get_safe_font('Arial', 11, 'bold'), 
                                        bg='#007AFF', fg='white',
-                                       relief='flat', bd=0, padx=15, pady=6,
+                                       relief='flat', bd=0, padx=20, pady=8,
                                        cursor='hand2',
                                        command=lambda path=album_path: self.open_callback(path))
-                    open_btn.pack(side='left', padx=(0, 8))
+                    open_btn.pack(side='left', padx=(0, 10))
                     
-                    # 收藏按钮
+                    # 收藏按钮 - 改进样式
                     is_fav = self.is_favorite(album_path) if self.is_favorite else False
-                    fav_text = "⭐" if is_fav else "☆"
-                    fav_color = '#FF9500' if is_fav else '#C7C7CC'
+                    fav_text = "⭐ 已收藏" if is_fav else "☆ 收藏"
+                    fav_color = '#FF9500' if is_fav else '#8E8E93'
                     fav_btn = tk.Button(btn_frame, text=fav_text, 
-                                      font=get_safe_font('Arial', 12), 
+                                      font=get_safe_font('Arial', 11), 
                                       bg=fav_color, fg='white',
-                                      relief='flat', bd=0, padx=12, pady=6,
+                                      relief='flat', bd=0, padx=15, pady=8,
                                       cursor='hand2',
                                       command=lambda path=album_path: self.favorite_callback(path))
                     fav_btn.pack(side='left')
                     
+                    # 异步加载封面图片
+                    self._load_cover_image(album_path, 
+                                         lambda photo, label=cover_label: self._update_cover(label, photo))
+                    
                     # 添加悬停效果
-                    if hasattr(self, '_add_hover_effects'):
-                        self._add_hover_effects(album_frame, open_btn, fav_btn)
+                    self._add_hover_effects(album_frame, open_btn, fav_btn)
                         
                 except Exception as e:
                     print(f"显示相册项时出错 {i}: {e}")
@@ -439,118 +545,20 @@ class AlbumGrid:
             # 创建最基本的显示
             self._create_fallback_display(albums)
     
-    def _create_fallback_display(self, albums):
-        """创建备用显示"""
+    def _update_cover(self, label, photo):
+        """更新封面图片"""
         try:
-            if not self.grid_frame:
-                return
-                
-            # 清除现有内容
-            for widget in self.grid_frame.winfo_children():
-                widget.destroy()
-            
-            if not albums:
-                tk.Label(self.grid_frame, text="暂无相册", bg='white', fg='gray').pack(expand=True)
-                return
-            
-            # 最简单的列表
-            for album in albums:
-                try:
-                    frame = tk.Frame(self.grid_frame, bg='lightgray', relief='raised', bd=1)
-                    frame.pack(fill='x', padx=5, pady=2)
-                    
-                    name = album.get('name', '未知相册')
-                    count = album.get('image_count', 0)
-                    path = album.get('path', '')
-                    
-                    tk.Label(frame, text=f"{name} ({count} 张图片)", bg='lightgray').pack(side='left', padx=5)
-                    
-                    if path:
-                        tk.Button(frame, text="打开", 
-                                command=lambda p=path: self.open_callback(p)).pack(side='right', padx=5)
-                except Exception as e:
-                    print(f"创建备用显示项时出错: {e}")
-                    continue
-                    
+            if photo and label.winfo_exists():
+                label.configure(image=photo, text="")
+                label.image = photo  # 保持引用
         except Exception as e:
-            print(f"创建备用显示时出错: {e}")
-
-    def _add_hover_effects(self, card_frame, open_btn, fav_btn):
-        """添加悬停效果"""
-        try:
-            original_bg = card_frame.cget('bg')
-            
-            def on_enter(event):
-                try:
-                    card_frame.configure(bg='#F8F9FA')
-                    # 更新内部组件背景
-                    for child in card_frame.winfo_children():
-                        if hasattr(child, 'configure'):
-                            try:
-                                child.configure(bg='#F8F9FA')
-                                # 递归更新子组件
-                                self._update_child_bg(child, '#F8F9FA')
-                            except:
-                                pass
-                except:
-                    pass
-            
-            def on_leave(event):
-                try:
-                    card_frame.configure(bg=original_bg)
-                    # 恢复内部组件背景
-                    for child in card_frame.winfo_children():
-                        if hasattr(child, 'configure'):
-                            try:
-                                child.configure(bg=original_bg)
-                                # 递归恢复子组件
-                                self._update_child_bg(child, original_bg)
-                            except:
-                                pass
-                except:
-                    pass
-            
-            # 绑定事件
-            card_frame.bind('<Enter>', on_enter)
-            card_frame.bind('<Leave>', on_leave)
-            
-            # 为子组件也绑定事件
-            for child in card_frame.winfo_children():
-                try:
-                    child.bind('<Enter>', on_enter)
-                    child.bind('<Leave>', on_leave)
-                    # 递归绑定子组件
-                    self._bind_hover_recursive(child, on_enter, on_leave)
-                except:
-                    pass
-        except Exception as e:
-            print(f"绑定悬停效果时出错: {e}")
+            print(f"更新封面时出错: {e}")
     
-    def _update_child_bg(self, widget, bg_color):
-        """递归更新子组件背景色"""
+    def __del__(self):
+        """清理资源"""
         try:
-            for child in widget.winfo_children():
-                if hasattr(child, 'configure'):
-                    try:
-                        # 跳过按钮，保持其原有颜色
-                        if child.winfo_class() != 'Button':
-                            child.configure(bg=bg_color)
-                        self._update_child_bg(child, bg_color)
-                    except:
-                        pass
-        except:
-            pass
-    
-    def _bind_hover_recursive(self, widget, on_enter, on_leave):
-        """递归绑定悬停事件"""
-        try:
-            for child in widget.winfo_children():
-                try:
-                    child.bind('<Enter>', on_enter)
-                    child.bind('<Leave>', on_leave)
-                    self._bind_hover_recursive(child, on_enter, on_leave)
-                except:
-                    pass
+            if hasattr(self, 'executor'):
+                self.executor.shutdown(wait=False)
         except:
             pass
 
