@@ -257,7 +257,12 @@ class AlbumGrid:
         
         # 封面缓存
         self.cover_cache = {}  # 缓存封面图片
+        self.large_cover_cache = {}  # 缓存大尺寸封面图片
         self.executor = ThreadPoolExecutor(max_workers=3)  # 线程池用于异步加载封面
+        
+        # 浮动预览框
+        self.preview_window = None
+        self.preview_timer = None
         
         # 确保初始化grid_frame
         self.grid_frame = None
@@ -342,7 +347,7 @@ class AlbumGrid:
         except Exception as e:
             print(f"显示空状态时出错: {e}")
         
-    def _load_cover_image(self, album_path, callback):
+    def _load_cover_image(self, album_path, callback, size=(120, 120)):
         """异步加载封面图片"""
         def load_cover():
             try:
@@ -353,23 +358,28 @@ class AlbumGrid:
                     if any(file.lower().endswith(ext) for ext in image_extensions):
                         cover_path = os.path.join(album_path, file)
                         
+                        # 根据尺寸选择缓存
+                        cache_key = f"{cover_path}_{size[0]}x{size[1]}"
+                        target_cache = self.large_cover_cache if size[0] > 120 else self.cover_cache
+                        
                         # 检查缓存
-                        if cover_path in self.cover_cache:
-                            callback(self.cover_cache[cover_path])
+                        if cache_key in target_cache:
+                            callback(target_cache[cache_key])
                             return
                         
                         # 加载并调整图片大小
                         with Image.open(cover_path) as img:
-                            # 创建缩略图 (120x120)
-                            img.thumbnail((120, 120), Image.Resampling.LANCZOS)
+                            # 创建缩略图
+                            img.thumbnail(size, Image.Resampling.LANCZOS)
                             
-                            # 创建圆角效果的背景
-                            bg = Image.new('RGBA', (120, 120), (242, 242, 247, 255))
+                            # 创建背景
+                            bg_color = (242, 242, 247, 255) if size[0] <= 120 else (255, 255, 255, 255)
+                            bg = Image.new('RGBA', size, bg_color)
                             
                             # 计算居中位置
                             img_w, img_h = img.size
-                            x = (120 - img_w) // 2
-                            y = (120 - img_h) // 2
+                            x = (size[0] - img_w) // 2
+                            y = (size[1] - img_h) // 2
                             
                             # 确保图片有alpha通道
                             if img.mode != 'RGBA':
@@ -382,7 +392,7 @@ class AlbumGrid:
                             photo = ImageTk.PhotoImage(bg)
                             
                             # 缓存图片
-                            self.cover_cache[cover_path] = photo
+                            target_cache[cache_key] = photo
                             
                             # 回调显示
                             callback(photo)
@@ -398,17 +408,159 @@ class AlbumGrid:
         # 在线程池中执行
         self.executor.submit(load_cover)
     
-    def _create_default_cover(self):
-        """创建默认封面图标"""
+    def _show_preview_window(self, event, album_path, album_name):
+        """显示预览浮动窗口"""
         try:
-            # 创建默认的文件夹图标
-            img = Image.new('RGBA', (120, 120), (242, 242, 247, 255))
+            # 清除之前的定时器
+            if self.preview_timer:
+                self.parent.after_cancel(self.preview_timer)
+                self.preview_timer = None
             
-            # 这里可以添加文件夹图标的绘制逻辑
-            # 暂时使用纯色背景
-            return ImageTk.PhotoImage(img)
-        except:
-            return None
+            # 关闭之前的预览窗口
+            self._hide_preview_window()
+            
+            # 延迟显示预览窗口（避免鼠标快速移动时频繁弹出）
+            self.preview_timer = self.parent.after(500, 
+                lambda: self._create_preview_window(event, album_path, album_name))
+            
+        except Exception as e:
+            print(f"显示预览窗口时出错: {e}")
+    
+    def _create_preview_window(self, event, album_path, album_name):
+        """创建预览浮动窗口"""
+        try:
+            # 创建顶层窗口
+            self.preview_window = tk.Toplevel(self.parent)
+            self.preview_window.withdraw()  # 先隐藏
+            
+            # 设置窗口属性
+            self.preview_window.overrideredirect(True)  # 无边框
+            self.preview_window.configure(bg='white', relief='solid', bd=2)
+            
+            # 设置窗口在最顶层
+            self.preview_window.attributes('-topmost', True)
+            
+            # 创建内容框架
+            content_frame = tk.Frame(self.preview_window, bg='white', padx=10, pady=10)
+            content_frame.pack()
+            
+            # 标题
+            title_label = tk.Label(content_frame, text=album_name,
+                                 font=get_safe_font('Arial', 12, 'bold'),
+                                 bg='white', fg='black')
+            title_label.pack(pady=(0, 8))
+            
+            # 封面占位符 - 更大尺寸
+            self.preview_cover_label = tk.Label(content_frame, text="🔄 加载中...",
+                                              font=get_safe_font('Arial', 16),
+                                              bg='#F2F2F7', fg='#8E8E93',
+                                              width=200, height=200)
+            self.preview_cover_label.pack()
+            
+            # 计算窗口位置（跟随鼠标，但避免超出屏幕）
+            x = event.x_root + 15
+            y = event.y_root + 15
+            
+            # 获取屏幕尺寸
+            screen_width = self.preview_window.winfo_screenwidth()
+            screen_height = self.preview_window.winfo_screenheight()
+            
+            # 预估窗口大小
+            window_width = 240
+            window_height = 280
+            
+            # 调整位置避免超出屏幕
+            if x + window_width > screen_width:
+                x = event.x_root - window_width - 15
+            if y + window_height > screen_height:
+                y = event.y_root - window_height - 15
+            
+            # 设置窗口位置
+            self.preview_window.geometry(f"+{x}+{y}")
+            
+            # 显示窗口
+            self.preview_window.deiconify()
+            
+            # 异步加载大尺寸封面
+            self._load_cover_image(album_path, 
+                                 lambda photo: self._update_preview_cover(photo),
+                                 size=(200, 200))
+            
+            # 绑定鼠标离开事件
+            self._bind_preview_events()
+            
+        except Exception as e:
+            print(f"创建预览窗口时出错: {e}")
+            self._hide_preview_window()
+    
+    def _update_preview_cover(self, photo):
+        """更新预览窗口的封面"""
+        try:
+            if (photo and self.preview_window and 
+                self.preview_window.winfo_exists() and 
+                hasattr(self, 'preview_cover_label') and 
+                self.preview_cover_label.winfo_exists()):
+                
+                self.preview_cover_label.configure(image=photo, text="")
+                self.preview_cover_label.image = photo  # 保持引用
+                
+        except Exception as e:
+            print(f"更新预览封面时出错: {e}")
+    
+    def _bind_preview_events(self):
+        """绑定预览窗口事件"""
+        try:
+            if self.preview_window and self.preview_window.winfo_exists():
+                # 鼠标进入预览窗口时保持显示
+                self.preview_window.bind('<Enter>', self._on_preview_enter)
+                # 鼠标离开预览窗口时隐藏
+                self.preview_window.bind('<Leave>', self._on_preview_leave)
+                
+                # 为预览窗口内的所有组件绑定事件
+                for widget in self.preview_window.winfo_children():
+                    self._bind_widget_events(widget)
+                    
+        except Exception as e:
+            print(f"绑定预览事件时出错: {e}")
+    
+    def _bind_widget_events(self, widget):
+        """递归绑定组件事件"""
+        try:
+            widget.bind('<Enter>', self._on_preview_enter)
+            widget.bind('<Leave>', self._on_preview_leave)
+            
+            # 递归绑定子组件
+            for child in widget.winfo_children():
+                self._bind_widget_events(child)
+                
+        except Exception as e:
+            print(f"绑定组件事件时出错: {e}")
+    
+    def _on_preview_enter(self, event):
+        """鼠标进入预览窗口"""
+        # 取消隐藏定时器
+        if self.preview_timer:
+            self.parent.after_cancel(self.preview_timer)
+            self.preview_timer = None
+    
+    def _on_preview_leave(self, event):
+        """鼠标离开预览窗口"""
+        # 延迟隐藏窗口（给用户时间移动鼠标回来）
+        self.preview_timer = self.parent.after(300, self._hide_preview_window)
+    
+    def _hide_preview_window(self):
+        """隐藏预览窗口"""
+        try:
+            if self.preview_timer:
+                self.parent.after_cancel(self.preview_timer)
+                self.preview_timer = None
+                
+            if self.preview_window and self.preview_window.winfo_exists():
+                self.preview_window.destroy()
+                self.preview_window = None
+                
+        except Exception as e:
+            print(f"隐藏预览窗口时出错: {e}")
 
     def display_albums(self, albums):
         """显示相册（带滚动支持和封面）"""
@@ -471,6 +623,13 @@ class AlbumGrid:
                     # 封面点击事件 - 预览相册
                     cover_label.bind('<Button-1>', 
                                    lambda e, path=album_path: self.open_callback(path))
+                    
+                    # 封面悬停事件 - 显示预览
+                    cover_label.bind('<Enter>', 
+                                   lambda e, path=album_path, name=album_name: 
+                                   self._show_preview_window(e, path, name))
+                    cover_label.bind('<Leave>', 
+                                   lambda e: self._schedule_hide_preview())
                     
                     # 右侧信息区域
                     info_frame = tk.Frame(main_frame, bg='white')
@@ -554,9 +713,17 @@ class AlbumGrid:
         except Exception as e:
             print(f"更新封面时出错: {e}")
     
+    def _schedule_hide_preview(self):
+        """计划隐藏预览窗口"""
+        # 延迟隐藏，给用户时间移动到预览窗口
+        self.preview_timer = self.parent.after(200, self._hide_preview_window)
+
     def __del__(self):
         """清理资源"""
         try:
+            # 清理预览窗口
+            self._hide_preview_window()
+            
             if hasattr(self, 'executor'):
                 self.executor.shutdown(wait=False)
         except:
