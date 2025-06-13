@@ -1,36 +1,78 @@
 import os
+import json
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 from PIL import Image, ImageTk
 import glob
+import platform
+
+# 配置文件路径
+CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.album_scanner_config.json')
 
 class PhotoAlbumApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("本地相册预览")
+        self.root.title("相册扫描器")
         self.root.geometry("1000x700")
+        self.root.minsize(800, 600)
+
+        # 设置样式
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+
+        # 配置颜色方案
+        self.bg_color = '#f5f5f5'
+        self.accent_color = '#4a86e8'
+        self.text_color = '#333333'
+        self.card_bg = '#ffffff'
+        self.border_color = '#e0e0e0'
+
+        # 应用样式
+        self.root.configure(bg=self.bg_color)
+        self.style.configure('TFrame', background=self.bg_color)
+        self.style.configure('TLabel', background=self.bg_color, foreground=self.text_color)
+        self.style.configure('TButton',
+                            background=self.accent_color,
+                            foreground='white',
+                            padding=6,
+                            borderwidth=0,
+                            relief='flat')
+        self.style.map('TButton',
+                      background=[('active', '#3a76d8'), ('pressed', '#2a66c8')])
+        self.style.configure('TRadiobutton', background=self.bg_color, foreground=self.text_color)
+        self.style.configure('TEntry', padding=6, relief='flat', fieldbackground=self.card_bg, bordercolor=self.border_color)
         
         # 存储配置的文件夹路径
-        self.folder_path = ""
+        # 加载上次保存的路径
+        self.folder_path = self.load_last_path()
+        self.path_var = tk.StringVar(value=self.folder_path)
         
         # 创建UI
         self.create_widgets()
         
     def create_widgets(self):
         # 顶部导航栏
-        nav_frame = ttk.Frame(self.root, padding="10")
+        nav_frame = ttk.Frame(self.root, padding="15 10 15 10")
         nav_frame.pack(fill=tk.X)
-        
-        ttk.Label(nav_frame, text="相册路径:").pack(side=tk.LEFT, padx=5)
-        
-        self.path_var = tk.StringVar()
-        path_entry = ttk.Entry(nav_frame, textvariable=self.path_var, width=50)
-        path_entry.pack(side=tk.LEFT, padx=5)
-        
-        browse_btn = ttk.Button(nav_frame, text="浏览", command=self.browse_folder)
+        nav_frame.configure(style='Nav.TFrame')
+
+        # 标题
+        title_label = ttk.Label(nav_frame, text="相册扫描器", font=('Microsoft YaHei', 16, 'bold'))
+        title_label.pack(side=tk.LEFT, padx=10)
+
+        # 路径选择区域
+        path_frame = ttk.Frame(nav_frame)
+        path_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=10)
+
+        ttk.Label(path_frame, text="相册路径:", font=('Microsoft YaHei', 10)).pack(side=tk.LEFT, padx=5)
+
+        path_entry = ttk.Entry(path_frame, textvariable=self.path_var, width=50, font=('Microsoft YaHei', 10))
+        path_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        browse_btn = ttk.Button(path_frame, text="浏览", command=self.browse_folder, width=8)
         browse_btn.pack(side=tk.LEFT, padx=5)
-        
-        scan_btn = ttk.Button(nav_frame, text="扫描相册", command=self.scan_albums)
+
+        scan_btn = ttk.Button(path_frame, text="扫描相册", command=self.scan_albums, width=10)
         scan_btn.pack(side=tk.LEFT, padx=5)
         
         # 相册显示区域
@@ -57,12 +99,33 @@ class PhotoAlbumApp:
         """更新画布滚动区域"""
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         
+    def load_last_path(self):
+        """加载上次保存的路径"""
+        try:
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, 'r') as f:
+                    config = json.load(f)
+                    return config.get('last_path', '')
+        except Exception as e:
+            print(f"加载配置失败: {e}")
+        return ''
+
+    def save_last_path(self):
+        """保存当前路径到配置文件"""
+        try:
+            config = {'last_path': self.folder_path}
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(config, f)
+        except Exception as e:
+            print(f"保存配置失败: {e}")
+
     def browse_folder(self):
         """浏览并选择文件夹"""
         folder_selected = filedialog.askdirectory()
         if folder_selected:
             self.folder_path = folder_selected
             self.path_var.set(folder_selected)
+            self.save_last_path()
             
     def scan_albums(self):
         """扫描文件夹并显示相册封面"""
@@ -115,8 +178,19 @@ class PhotoAlbumApp:
             cover_path = image_files[0]
             
             # 创建相册封面框架
-            album_frame = ttk.Frame(self.inner_frame, padding="5", relief=tk.RAISED)
-            album_frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            # 创建相册封面框架 - 现代卡片式设计
+            album_frame = ttk.Frame(self.inner_frame, padding="10", relief=tk.FLAT)
+            album_frame.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
+            album_frame.configure(style='Card.TFrame')
+            album_frame.bind('<Enter>', lambda e, f=album_frame: self.on_enter(e, f))
+            album_frame.bind('<Leave>', lambda e, f=album_frame: self.on_leave(e, f))
+
+            # 添加卡片阴影效果
+            if platform.system() == 'Windows':
+                album_frame.configure(relief=tk.RAISED, borderwidth=1)
+            else:
+                album_frame.configure(relief=tk.FLAT)
+                album_frame.bind('<Configure>', lambda e, f=album_frame: self.update_shadow(e, f))
             
             # 加载并调整封面图片大小
             try:
@@ -131,8 +205,13 @@ class PhotoAlbumApp:
                 cover_label.pack(pady=5)
                 
                 # 添加文件夹名称标签
-                name_label = ttk.Label(album_frame, text=folder_name, wraplength=200)
-                name_label.pack(pady=5)
+                # 添加文件夹名称标签
+                name_label = ttk.Label(album_frame, text=folder_name, wraplength=200, font=('Microsoft YaHei', 10, 'bold'))
+                name_label.pack(pady=10)
+
+                # 添加图片数量标签
+                count_label = ttk.Label(album_frame, text=f"{len(image_files)}张图片", font=('Microsoft YaHei', 9), foreground='#666666')
+                count_label.pack(pady=2)
                 
                 # 更新行列位置
                 col += 1
@@ -170,6 +249,23 @@ class PhotoAlbumApp:
         # 创建图片查看器
         img_viewer = ImageViewer(album_window, image_files)
         
+    def on_enter(self, event, frame):
+        """鼠标悬停在相册卡片上时的效果"""
+        frame.configure(style='CardHover.TFrame')
+        if platform.system() != 'Windows':
+            frame.configure(relief=tk.RAISED, borderwidth=2)
+
+    def on_leave(self, event, frame):
+        """鼠标离开相册卡片时的效果"""
+        frame.configure(style='Card.TFrame')
+        if platform.system() != 'Windows':
+            frame.configure(relief=tk.FLAT, borderwidth=1)
+
+    def update_shadow(self, event, frame):
+        """更新卡片阴影效果"""
+        # 简单的阴影模拟
+        pass
+
 class ImageViewer:
     def __init__(self, parent, image_files):
         self.parent = parent
@@ -198,12 +294,23 @@ class ImageViewer:
         self.image_frame = ttk.Frame(main_frame)
         self.image_frame.pack(fill=tk.BOTH, expand=True)
         
-        self.image_label = ttk.Label(self.image_frame)
+        # 创建图片显示区域
+        self.image_container = ttk.Frame(self.image_frame, padding=10)
+        self.image_container.pack(fill=tk.BOTH, expand=True)
+        self.image_container.configure(style='ImageContainer.TFrame')
+
+        self.image_label = ttk.Label(self.image_container, background='#f0f0f0')
         self.image_label.pack(expand=True)
+
+        # 添加图片信息标签
+        self.image_info = ttk.Label(self.image_frame, text='', font=('Microsoft YaHei', 10))
+        self.image_info.pack(pady=5)
         
+        # 绑定键盘事件
         # 绑定键盘事件
         self.parent.bind("<Left>", lambda e: self.prev_image())
         self.parent.bind("<Right>", lambda e: self.next_image())
+        self.parent.bind("<Escape>", lambda e: self.parent.destroy())
         
     def load_image(self):
         """加载当前索引的图片"""
@@ -211,7 +318,9 @@ class ImageViewer:
             image_path = self.image_files[self.current_index]
             
             # 更新状态
-            self.status_var.set(f"{self.current_index + 1}/{len(self.image_files)}: {os.path.basename(image_path)}")
+            # 更新状态和图片信息
+            self.status_var.set(f"{self.current_index + 1}/{len(self.image_files)}")
+            self.image_info.config(text=f"{os.path.basename(image_path)} ({img.width}×{img.height})")
             
             # 加载并调整图片大小以适应窗口
             try:
