@@ -563,18 +563,20 @@ class ImageViewer:
         self.current_image = None
         self.zoom_factor = 1.0
         self.is_fullscreen = False
+        self.rotation = 0  # 旋转角度
         
         # 设置窗口属性
         self.parent.configure(bg='#1D1D1F')
         
         self.create_widgets()
         self.bind_events()
-        self.load_current_image()
+        # 延迟加载图片，确保窗口已完全创建
+        self.parent.after(100, self.load_current_image)
     
     def create_widgets(self):
         """创建查看器组件"""
         # 顶部工具栏
-        self.toolbar = tk.Frame(self.parent, bg='#2C2C2E', height=50)
+        self.toolbar = tk.Frame(self.parent, bg='#2C2C2E', height=60)
         self.toolbar.pack(side='top', fill='x')
         self.toolbar.pack_propagate(False)
         
@@ -582,34 +584,60 @@ class ImageViewer:
         toolbar_content = tk.Frame(self.toolbar, bg='#2C2C2E')
         toolbar_content.pack(fill='both', expand=True, padx=15, pady=10)
         
-        # 文件信息
+        # 左侧文件信息
+        left_frame = tk.Frame(toolbar_content, bg='#2C2C2E')
+        left_frame.pack(side='left', fill='y')
+        
         self.file_info_var = tk.StringVar()
-        info_label = tk.Label(toolbar_content, textvariable=self.file_info_var,
+        info_label = tk.Label(left_frame, textvariable=self.file_info_var,
                              font=get_safe_font('Arial', 12, 'bold'),
                              bg='#2C2C2E', fg='white')
-        info_label.pack(side='left')
+        info_label.pack(anchor='w')
         
-        # 右侧按钮
+        # 快捷键提示
+        shortcut_label = tk.Label(left_frame, text="⌨️ 快捷键: ←→切换 空格暂停 F11全屏 ESC退出",
+                                 font=get_safe_font('Arial', 9),
+                                 bg='#2C2C2E', fg='#8E8E93')
+        shortcut_label.pack(anchor='w', pady=(2, 0))
+        
+        # 右侧控制按钮
         btn_frame = tk.Frame(toolbar_content, bg='#2C2C2E')
         btn_frame.pack(side='right')
+        
+        # 旋转按钮
+        rotate_left_btn = tk.Button(btn_frame, text="↺", 
+                                   font=get_safe_font('Arial', 12),
+                                   bg='#48484A', fg='white', relief='flat',
+                                   width=3, command=self.rotate_left)
+        rotate_left_btn.pack(side='left', padx=2)
+        
+        rotate_right_btn = tk.Button(btn_frame, text="↻", 
+                                    font=get_safe_font('Arial', 12),
+                                    bg='#48484A', fg='white', relief='flat',
+                                    width=3, command=self.rotate_right)
+        rotate_right_btn.pack(side='left', padx=2)
+        
+        # 分隔线
+        separator = tk.Label(btn_frame, text="|", bg='#2C2C2E', fg='#48484A')
+        separator.pack(side='left', padx=5)
         
         # 缩放按钮
         zoom_out_btn = tk.Button(btn_frame, text="缩小", 
                                font=get_safe_font('Arial', 10),
                                bg='#48484A', fg='white', relief='flat',
-                               command=self.zoom_out)
+                               padx=8, command=self.zoom_out)
         zoom_out_btn.pack(side='left', padx=2)
         
         zoom_in_btn = tk.Button(btn_frame, text="放大", 
                               font=get_safe_font('Arial', 10),
                               bg='#48484A', fg='white', relief='flat',
-                              command=self.zoom_in)
+                              padx=8, command=self.zoom_in)
         zoom_in_btn.pack(side='left', padx=2)
         
         reset_btn = tk.Button(btn_frame, text="重置", 
                             font=get_safe_font('Arial', 10),
                             bg='#48484A', fg='white', relief='flat',
-                            command=self.reset_zoom)
+                            padx=8, command=self.reset_zoom)
         reset_btn.pack(side='left', padx=2)
         
         # 主图片显示区域
@@ -617,11 +645,11 @@ class ImageViewer:
         self.image_frame.pack(fill='both', expand=True)
         
         # 图片标签
-        self.image_label = tk.Label(self.image_frame, bg='#1D1D1F')
+        self.image_label = tk.Label(self.image_frame, bg='#1D1D1F', cursor='hand2')
         self.image_label.pack(expand=True)
         
         # 底部控制栏
-        self.control_frame = tk.Frame(self.parent, bg='#2C2C2E', height=60)
+        self.control_frame = tk.Frame(self.parent, bg='#2C2C2E', height=70)
         self.control_frame.pack(side='bottom', fill='x')
         self.control_frame.pack_propagate(False)
         
@@ -629,30 +657,46 @@ class ImageViewer:
         control_content = tk.Frame(self.control_frame, bg='#2C2C2E')
         control_content.pack(fill='both', expand=True, padx=20, pady=15)
         
-        # 导航按钮
-        prev_btn = tk.Button(control_content, text="⬅ 上一张", 
+        # 左侧导航按钮
+        nav_frame = tk.Frame(control_content, bg='#2C2C2E')
+        nav_frame.pack(side='left')
+        
+        prev_btn = tk.Button(nav_frame, text="⬅ 上一张", 
                            font=get_safe_font('Arial', 12, 'bold'),
                            bg='#007AFF', fg='white', relief='flat',
                            padx=20, pady=8, command=self.prev_image)
         prev_btn.pack(side='left')
         
-        next_btn = tk.Button(control_content, text="下一张 ➡", 
+        next_btn = tk.Button(nav_frame, text="下一张 ➡", 
                            font=get_safe_font('Arial', 12, 'bold'),
                            bg='#007AFF', fg='white', relief='flat',
                            padx=20, pady=8, command=self.next_image)
         next_btn.pack(side='left', padx=(10, 0))
         
-        # 进度信息
+        # 中间缩放信息
+        zoom_info_frame = tk.Frame(control_content, bg='#2C2C2E')
+        zoom_info_frame.pack(expand=True)
+        
+        self.zoom_var = tk.StringVar()
+        zoom_label = tk.Label(zoom_info_frame, textvariable=self.zoom_var,
+                             font=get_safe_font('Arial', 11),
+                             bg='#2C2C2E', fg='#8E8E93')
+        zoom_label.pack()
+        
+        # 右侧进度信息
+        progress_frame = tk.Frame(control_content, bg='#2C2C2E')
+        progress_frame.pack(side='right')
+        
         self.progress_var = tk.StringVar()
-        progress_label = tk.Label(control_content, textvariable=self.progress_var,
-                                font=get_safe_font('Arial', 12),
-                                bg='#2C2C2E', fg='#8E8E93')
-        progress_label.pack(side='right')
+        progress_label = tk.Label(progress_frame, textvariable=self.progress_var,
+                                font=get_safe_font('Arial', 12, 'bold'),
+                                bg='#2C2C2E', fg='white')
+        progress_label.pack()
     
     def bind_events(self):
-        """绑定事件"""
-        # 键盘事件
-        self.parent.bind('<Key>', self.on_key_press)
+        """绑定键盘和鼠标事件"""
+        # 键盘事件 - 绑定到窗口
+        self.parent.bind('<KeyPress>', self.on_key_press)
         self.parent.focus_set()
         
         # 双击全屏
@@ -663,6 +707,63 @@ class ImageViewer:
         
         # 窗口大小变化时重新调整图片
         self.parent.bind('<Configure>', self.on_window_resize)
+        
+        # 为了确保键盘事件能被捕获，也绑定到图片标签
+        self.image_label.bind('<Button-1>', lambda e: self.parent.focus_set())
+    
+    def on_key_press(self, event):
+        """键盘事件处理 - 支持多种快捷键"""
+        key = event.keysym.lower()
+        
+        # 图片导航
+        if key in ['left', 'a']:
+            self.prev_image()
+        elif key in ['right', 'd']:
+            self.next_image()
+        elif key in ['up', 'w']:
+            self.prev_image()
+        elif key in ['down', 's']:
+            self.next_image()
+        elif key in ['home']:
+            self.goto_first_image()
+        elif key in ['end']:
+            self.goto_last_image()
+        
+        # 缩放控制
+        elif key in ['plus', 'equal', 'kp_add']:
+            self.zoom_in()
+        elif key in ['minus', 'kp_subtract']:
+            self.zoom_out()
+        elif key in ['0', 'kp_0']:
+            self.reset_zoom()
+        
+        # 旋转控制
+        elif key in ['r']:
+            self.rotate_right()
+        elif key in ['shift_r'] or (event.state & 0x1 and key == 'r'):  # Shift+R
+            self.rotate_left()
+        elif key in ['ctrl_r'] or (event.state & 0x4 and key == 'r'):  # Ctrl+R
+            self.reset_rotation()
+        
+        # 全屏控制
+        elif key in ['f11', 'f']:
+            self.toggle_fullscreen()
+        elif key in ['escape']:
+            if self.is_fullscreen:
+                self.toggle_fullscreen()
+            else:
+                self.parent.destroy()
+        
+        # 其他功能
+        elif key in ['space']:
+            self.start_slideshow()
+        elif key in ['i']:
+            self.show_image_info()
+        elif key in ['h', 'f1']:
+            self.show_help()
+        
+        # 防止事件传播
+        return "break"
     
     def load_current_image(self):
         """加载当前图片"""
@@ -674,15 +775,20 @@ class ImageViewer:
             
             # 使用PIL加载图片
             with Image.open(image_path) as img:
+                # 应用旋转
+                if self.rotation != 0:
+                    img = img.rotate(-self.rotation, expand=True)
+                
                 # 获取原始尺寸
                 original_width, original_height = img.size
                 
                 # 获取显示区域尺寸
+                self.image_frame.update_idletasks()
                 display_width = self.image_frame.winfo_width() or 800
                 display_height = self.image_frame.winfo_height() or 600
                 
                 # 计算缩放比例
-                if display_width > 100 and display_height > 100:  # 确保窗口已初始化
+                if display_width > 100 and display_height > 100:
                     scale_x = display_width / original_width
                     scale_y = display_height / original_height
                     scale = min(scale_x, scale_y) * 0.9  # 留一些边距
@@ -691,19 +797,18 @@ class ImageViewer:
                     scale *= self.zoom_factor
                     
                     # 计算新尺寸
-                    new_width = int(original_width * scale)
-                    new_height = int(original_height * scale)
+                    new_width = max(1, int(original_width * scale))
+                    new_height = max(1, int(original_height * scale))
                     
                     # 调整图片大小
-                    if new_width > 0 and new_height > 0:
-                        resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                        
-                        # 转换为PhotoImage
-                        self.current_image = ImageTk.PhotoImage(resized_img)
-                        
-                        # 显示图片
-                        self.image_label.configure(image=self.current_image)
-                        self.image_label.image = self.current_image  # 保持引用
+                    resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # 转换为PhotoImage
+                    self.current_image = ImageTk.PhotoImage(resized_img)
+                    
+                    # 显示图片
+                    self.image_label.configure(image=self.current_image, text="")
+                    self.image_label.image = self.current_image  # 保持引用
             
             # 更新信息显示
             filename = os.path.basename(image_path)
@@ -712,10 +817,17 @@ class ImageViewer:
             progress_text = f"{self.current_index + 1} / {len(self.image_files)}"
             self.progress_var.set(progress_text)
             
+            # 更新缩放信息
+            zoom_percent = int(self.zoom_factor * 100)
+            zoom_text = f"缩放: {zoom_percent}%"
+            if self.rotation != 0:
+                zoom_text += f" | 旋转: {self.rotation}°"
+            self.zoom_var.set(zoom_text)
+            
         except Exception as e:
             print(f"加载图片失败 {image_path}: {e}")
             # 显示错误信息
-            error_text = f"无法加载图片\n{os.path.basename(image_path)}"
+            error_text = f"无法加载图片\n{os.path.basename(image_path) if image_path else '未知文件'}"
             self.image_label.configure(image='', text=error_text, 
                                      font=get_safe_font('Arial', 14),
                                      fg='#FF3B30')
@@ -732,21 +844,50 @@ class ImageViewer:
             self.current_index += 1
             self.load_current_image()
     
+    def goto_first_image(self):
+        """跳转到第一张图片"""
+        if self.image_files:
+            self.current_index = 0
+            self.load_current_image()
+    
+    def goto_last_image(self):
+        """跳转到最后一张图片"""
+        if self.image_files:
+            self.current_index = len(self.image_files) - 1
+            self.load_current_image()
+    
     def zoom_in(self):
         """放大"""
         self.zoom_factor *= 1.2
+        if self.zoom_factor > 10:  # 限制最大缩放
+            self.zoom_factor = 10
         self.load_current_image()
     
     def zoom_out(self):
         """缩小"""
         self.zoom_factor /= 1.2
-        if self.zoom_factor < 0.1:
+        if self.zoom_factor < 0.1:  # 限制最小缩放
             self.zoom_factor = 0.1
         self.load_current_image()
     
     def reset_zoom(self):
         """重置缩放"""
         self.zoom_factor = 1.0
+        self.load_current_image()
+    
+    def rotate_left(self):
+        """向左旋转90度"""
+        self.rotation = (self.rotation + 90) % 360
+        self.load_current_image()
+    
+    def rotate_right(self):
+        """向右旋转90度"""
+        self.rotation = (self.rotation - 90) % 360
+        self.load_current_image()
+    
+    def reset_rotation(self):
+        """重置旋转"""
+        self.rotation = 0
         self.load_current_image()
     
     def toggle_fullscreen(self, event=None):
@@ -767,25 +908,69 @@ class ImageViewer:
         # 重新加载图片以适应新尺寸
         self.parent.after(100, self.load_current_image)
     
-    def on_key_press(self, event):
-        """键盘事件处理"""
-        if event.keysym == 'Left':
-            self.prev_image()
-        elif event.keysym == 'Right':
-            self.next_image()
-        elif event.keysym == 'Escape':
-            if self.is_fullscreen:
-                self.toggle_fullscreen()
-            else:
-                self.parent.destroy()
-        elif event.keysym == 'F11':
-            self.toggle_fullscreen()
-        elif event.keysym == 'plus' or event.keysym == 'equal':
-            self.zoom_in()
-        elif event.keysym == 'minus':
-            self.zoom_out()
-        elif event.keysym == '0':
-            self.reset_zoom()
+    def start_slideshow(self):
+        """开始/暂停幻灯片播放"""
+        # 这里可以实现幻灯片功能
+        messagebox.showinfo("幻灯片", "幻灯片功能开发中...")
+    
+    def show_image_info(self):
+        """显示图片信息"""
+        if not self.image_files or self.current_index >= len(self.image_files):
+            return
+        
+        try:
+            image_path = self.image_files[self.current_index]
+            with Image.open(image_path) as img:
+                width, height = img.size
+                format_name = img.format
+                mode = img.mode
+            
+            file_size = os.path.getsize(image_path)
+            size_mb = file_size / (1024 * 1024)
+            
+            info_text = f"""图片信息：
+文件名: {os.path.basename(image_path)}
+尺寸: {width} × {height} 像素
+格式: {format_name}
+模式: {mode}
+文件大小: {size_mb:.2f} MB
+路径: {image_path}"""
+            
+            messagebox.showinfo("图片信息", info_text)
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"无法获取图片信息: {e}")
+    
+    def show_help(self):
+        """显示帮助信息"""
+        help_text = """图片查看器快捷键：
+
+📸 图片导航：
+  ← / A / ↑ / W    上一张图片
+  → / D / ↓ / S    下一张图片
+  Home             第一张图片
+  End              最后一张图片
+
+🔍 缩放控制：
+  + / =            放大
+  -                缩小
+  0                重置缩放
+
+🔄 旋转控制：
+  R                向右旋转90°
+  Shift + R        向左旋转90°
+  Ctrl + R         重置旋转
+
+🖥️ 显示控制：
+  F11 / F          切换全屏
+  ESC              退出全屏/关闭
+  空格              开始幻灯片
+
+ℹ️ 其他功能：
+  I                显示图片信息
+  H / F1           显示此帮助"""
+        
+        messagebox.showinfo("快捷键帮助", help_text)
     
     def on_mouse_wheel(self, event):
         """鼠标滚轮事件"""
@@ -799,189 +984,4 @@ class ImageViewer:
         # 只在主窗口大小变化时重新加载图片
         if event.widget == self.parent:
             self.parent.after(100, self.load_current_image)
-            
-        image_path = self.image_files[self.current_index]
-        window_width = self.image_container.winfo_width()
-        window_height = self.image_container.winfo_height()
-        
-        if window_width < 10: 
-            window_width = 800
-        if window_height < 10: 
-            window_height = 500
-        
-        result = ImageProcessor.load_image_with_mode(
-            image_path, window_width, window_height, self.zoom_mode.get(), self.rotation)
-        
-        if result[0]:
-            photo, width, height, orig_width, orig_height = result
-            self.image_label.config(image=photo, text="")
-            self.image_label.image = photo
-            self.status_var.set(f"{self.current_index + 1} / {len(self.image_files)}")
-            
-            # 显示详细信息
-            size_info = f"显示: {width}×{height}"
-            if self.zoom_mode.get() != "original":
-                size_info += f" (原始: {orig_width}×{orig_height})"
-            if self.rotation != 0:
-                size_info += f" 旋转: {self.rotation}°"
-            
-            self.image_info.config(text=f"{os.path.basename(image_path)} • {size_info}")
-        else:
-            self.image_label.config(text="❌ 无法加载图片", image="")
-            self.image_label.image = None
-
-    def prev_image(self):
-        """上一张图片"""
-        self.current_index = (self.current_index - 1) % len(self.image_files)
-        self.load_image()
-        
-    def next_image(self):
-        """下一张图片"""
-        self.current_index = (self.current_index + 1) % len(self.image_files)
-        self.load_image()
-        window_width = self.image_container.winfo_width()
-        window_height = self.image_container.winfo_height()
-        
-        if window_width < 10: 
-            window_width = 800
-        if window_height < 10: 
-            window_height = 500
-        
-        result = ImageProcessor.load_image_with_mode(
-            image_path, window_width, window_height, self.zoom_mode.get(), self.rotation)
-        
-        if result[0]:
-            photo, width, height, orig_width, orig_height = result
-            self.image_label.config(image=photo, text="")
-            self.image_label.image = photo
-            self.status_var.set(f"{self.current_index + 1} / {len(self.image_files)}")
-            
-            # 显示详细信息
-            size_info = f"显示: {width}×{height}"
-            if self.zoom_mode.get() != "original":
-                size_info += f" (原始: {orig_width}×{orig_height})"
-            if self.rotation != 0:
-                size_info += f" 旋转: {self.rotation}°"
-            
-            self.image_info.config(text=f"{os.path.basename(image_path)} • {size_info}")
-        else:
-            self.image_label.config(text="❌ 无法加载图片", image="")
-            self.image_label.image = None
-
-    def prev_image(self):
-        """上一张图片"""
-        self.current_index = (self.current_index - 1) % len(self.image_files)
-        self.load_image()
-        
-    def next_image(self):
-        """下一张图片"""
-        self.current_index = (self.current_index + 1) % len(self.image_files)
-        self.load_image()
-        """上一张图片"""
-        self.current_index = (self.current_index - 1) % len(self.image_files)
-        self.load_image()
-        
-    def next_image(self):
-        """下一张图片"""
-        self.current_index = (self.current_index + 1) % len(self.image_files)
-        self.load_image()
-        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # 显示EXIF信息
-        text_widget.insert(tk.END, f"📁 文件路径\n{image_path}\n\n")
-        for key, value in exif_data.items():
-            text_widget.insert(tk.END, f"📋 {key}\n{value}\n\n")
-        
-        text_widget.config(state=tk.DISABLED)
-
-    def load_image(self):
-        """加载当前图片"""
-        if not (0 <= self.current_index < len(self.image_files)):
-            return
-            
-        image_path = self.image_files[self.current_index]
-        window_width = self.image_container.winfo_width()
-        window_height = self.image_container.winfo_height()
-        
-        if window_width < 10: 
-            window_width = 800
-        if window_height < 10: 
-            window_height = 500
-        
-        result = ImageProcessor.load_image_with_mode(
-            image_path, window_width, window_height, self.zoom_mode.get(), self.rotation)
-        
-        if result[0]:
-            photo, width, height, orig_width, orig_height = result
-            self.image_label.config(image=photo, text="")
-            self.image_label.image = photo
-            self.status_var.set(f"{self.current_index + 1} / {len(self.image_files)}")
-            
-            # 显示详细信息
-            size_info = f"显示: {width}×{height}"
-            if self.zoom_mode.get() != "original":
-                size_info += f" (原始: {orig_width}×{orig_height})"
-            if self.rotation != 0:
-                size_info += f" 旋转: {self.rotation}°"
-            
-            self.image_info.config(text=f"{os.path.basename(image_path)} • {size_info}")
-        else:
-            self.image_label.config(text="❌ 无法加载图片", image="")
-            self.image_label.image = None
-
-    def prev_image(self):
-        """上一张图片"""
-        self.current_index = (self.current_index - 1) % len(self.image_files)
-        self.load_image()
-        
-    def next_image(self):
-        """下一张图片"""
-        self.current_index = (self.current_index + 1) % len(self.image_files)
-        self.load_image()
-        window_width = self.image_container.winfo_width()
-        window_height = self.image_container.winfo_height()
-        
-        if window_width < 10: 
-            window_width = 800
-        if window_height < 10: 
-            window_height = 500
-        
-        result = ImageProcessor.load_image_with_mode(
-            image_path, window_width, window_height, self.zoom_mode.get(), self.rotation)
-        
-        if result[0]:
-            photo, width, height, orig_width, orig_height = result
-            self.image_label.config(image=photo, text="")
-            self.image_label.image = photo
-            self.status_var.set(f"{self.current_index + 1} / {len(self.image_files)}")
-            
-            # 显示详细信息
-            size_info = f"显示: {width}×{height}"
-            if self.zoom_mode.get() != "original":
-                size_info += f" (原始: {orig_width}×{orig_height})"
-            if self.rotation != 0:
-                size_info += f" 旋转: {self.rotation}°"
-            
-            self.image_info.config(text=f"{os.path.basename(image_path)} • {size_info}")
-        else:
-            self.image_label.config(text="❌ 无法加载图片", image="")
-            self.image_label.image = None
-
-    def prev_image(self):
-        """上一张图片"""
-        self.current_index = (self.current_index - 1) % len(self.image_files)
-        self.load_image()
-        
-    def next_image(self):
-        """下一张图片"""
-        self.current_index = (self.current_index + 1) % len(self.image_files)
-        self.load_image()
-        """上一张图片"""
-        self.current_index = (self.current_index - 1) % len(self.image_files)
-        self.load_image()
-        
-    def next_image(self):
-        """下一张图片"""
-        self.current_index = (self.current_index + 1) % len(self.image_files)
         self.load_image()
