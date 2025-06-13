@@ -13,7 +13,7 @@ class ImageProcessor:
     
     @classmethod
     def scan_albums(cls, root_path):
-        """扫描指定路径下的所有包含图片的文件夹"""
+        """扫描相册文件夹，正确处理Unicode路径"""
         albums = []
         
         try:
@@ -31,15 +31,18 @@ class ImageProcessor:
                         # 获取文件夹中的图片文件
                         image_files = cls.get_image_files(str(item))
                         
-                        if image_files:
+                        if image_files and len(image_files) > 0:
                             # 计算文件夹大小
                             folder_size = cls.get_folder_size(image_files)
+                            
+                            # 确保有封面图片
+                            cover_image = image_files[0] if image_files else None
                             
                             album_info = {
                                 'path': str(item),
                                 'name': item.name,
                                 'image_files': image_files,
-                                'cover_image': image_files[0],
+                                'cover_image': cover_image,
                                 'image_count': len(image_files),
                                 'folder_size': folder_size
                             }
@@ -114,7 +117,7 @@ class ImageProcessor:
     
     @classmethod
     def create_thumbnail(cls, image_path, size=(200, 200)):
-        """创建图片缩略图，支持Unicode路径"""
+        """创建缩略图，支持Unicode路径"""
         try:
             # 使用pathlib处理路径
             image_path = Path(image_path)
@@ -125,26 +128,20 @@ class ImageProcessor:
                 
             # 打开图片
             with Image.open(str(image_path)) as img:
-                # 自动旋转（基于EXIF）
-                img = cls.auto_rotate_image(img)
+                # 转换为RGB模式（处理RGBA和其他模式）
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    # 创建白色背景
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
                 
-                # 创建缩略图 - 保持宽高比
+                # 创建缩略图 - 保持比例
                 img.thumbnail(size, Image.Resampling.LANCZOS)
-                
-                # 创建白色背景
-                background = Image.new('RGB', size, '#F2F2F7')
-                
-                # 计算居中位置
-                x = (size[0] - img.width) // 2
-                y = (size[1] - img.height) // 2
-                
-                # 粘贴图片到背景
-                if img.mode == 'RGBA':
-                    background.paste(img, (x, y), img)
-                else:
-                    background.paste(img, (x, y))
-                
-                return background
+                return img.copy()
                 
         except Exception as e:
             print(f"创建缩略图时出错 {image_path}: {e}")
@@ -152,52 +149,51 @@ class ImageProcessor:
     
     @classmethod
     def load_image_with_mode(cls, image_path, window_width, window_height, mode="fit", rotation=0):
-        """根据指定模式加载图片，支持Unicode路径"""
+        """加载图片并按指定模式调整大小"""
         try:
             image_path = Path(image_path)
             
             if not image_path.exists():
-                print(f"图片文件不存在: {image_path}")
                 return None, 0, 0, 0, 0
                 
-            img = Image.open(str(image_path))
-            
-            # 自动旋转（基于EXIF）
-            img = cls.auto_rotate_image(img)
-            
-            # 手动旋转
-            if rotation != 0:
-                img = img.rotate(rotation, expand=True)
-            
-            original_width, original_height = img.size
-            
-            if mode == "fit":
-                # 适应窗口大小
-                img.thumbnail((window_width - 40, window_height - 40), Image.Resampling.LANCZOS)
-            elif mode == "fill":
-                # 填充窗口
-                img_ratio = img.width / img.height
-                win_ratio = (window_width - 40) / (window_height - 40)
+            with Image.open(str(image_path)) as img:
+                orig_width, orig_height = img.size
                 
-                if img_ratio > win_ratio:
-                    new_height = window_height - 40
-                    new_width = int(new_height * img_ratio)
-                else:
-                    new_width = window_width - 40
-                    new_height = int(new_width / img_ratio)
+                # 转换颜色模式
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
                 
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                left = (new_width - (window_width - 40)) // 2
-                top = (new_height - (window_height - 40)) // 2
-                img = img.crop((left, top, left + window_width - 40, top + window_height - 40))
-            # mode == "original" 时不做任何处理
-            
-            # 转换为PhotoImage
-            photo = ImageTk.PhotoImage(img)
-            return photo, img.width, img.height, original_width, original_height
-            
+                # 旋转图片
+                if rotation != 0:
+                    img = img.rotate(rotation, expand=True)
+                
+                # 根据模式调整大小
+                if mode == "fit":
+                    # 适应窗口，保持比例
+                    img.thumbnail((window_width, window_height), Image.Resampling.LANCZOS)
+                elif mode == "fill":
+                    # 填充窗口，可能裁剪
+                    ratio = max(window_width/img.width, window_height/img.height)
+                    new_width = int(img.width * ratio)
+                    new_height = int(img.height * ratio)
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                elif mode == "original":
+                    # 保持原始大小
+                    pass
+                
+                # 转换为PhotoImage
+                from PIL import ImageTk
+                photo = ImageTk.PhotoImage(img)
+                return photo, img.width, img.height, orig_width, orig_height
+                
         except Exception as e:
-            print(f"无法加载图片 {image_path}: {e}")
+            print(f"加载图片失败 {image_path}: {e}")
             return None, 0, 0, 0, 0
     
     @classmethod
@@ -271,6 +267,13 @@ class SlideshowManager:
             self.image_viewer.next_image()
             self.timer = threading.Timer(self.interval, self._next_slide)
             self.timer.start()
+    
+    def set_interval(self, interval):
+        """设置播放间隔"""
+        self.interval = interval
+        self.image_viewer.next_image()
+        self.timer = threading.Timer(self.interval, self._next_slide)
+        self.timer.start()
     
     def set_interval(self, interval):
         """设置播放间隔"""
