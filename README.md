@@ -136,47 +136,93 @@ ttkthemes>=3.2.0       # 主题支持
 - **相册网格**：瀑布流式展示所有相册
 - **状态栏**：底部显示当前状态和统计信息
 
-## 🏗️ 项目架构
+## 🏗️ 项目架构 (重构后)
 
 ### 文件结构
 ```
 album-scanner/
-├── main.py              # 主程序 - 应用入口和窗口管理
-├── ui_components.py     # UI组件 - 所有界面组件
-├── image_utils.py       # 图片工具 - 图片处理和扫描
-├── config.py            # 配置管理 - 设置和数据持久化
-├── requirements.txt     # 依赖列表
-├── README.md           # 项目文档
-└── ~/.album_scanner/   # 用户配置目录
-    └── settings.json   # 用户设置文件
+├── main.py               # 应用入口 - 简化的启动器
+├── app_manager.py        # 应用管理器 - 主应用逻辑和生命周期
+├── album_scanner.py      # 相册扫描服务 - 扫描逻辑和结果处理
+├── album_history.py      # 历史记录管理器 - 最近浏览功能
+├── album_favorites.py    # 收藏管理器 - 收藏功能管理
+├── album_viewer.py       # 相册查看器管理器 - 图片查看逻辑
+├── fallback_ui.py        # 备用UI管理器 - 简化界面和错误恢复
+├── ui_components.py      # UI组件库 - 所有界面组件
+├── image_utils.py        # 图片工具库 - 图片处理和扫描
+├── config.py             # 配置管理器 - 设置和数据持久化
+├── requirements.txt      # 依赖列表
+├── README.md            # 项目文档
+└── ~/.album_scanner/    # 用户配置目录
+    └── settings.json    # 用户设置文件
 ```
 
-### 核心模块
+### 模块化架构
 
-#### PhotoAlbumApp (main.py)
-- 应用程序主类和生命周期管理
-- 窗口设置、主题配置
-- 事件处理和快捷键绑定
-- 错误处理和备用界面
+#### 🎯 核心管理器
+- **PhotoAlbumApp** (`app_manager.py`): 主应用程序管理器
+  - 窗口生命周期管理
+  - UI组件协调
+  - 事件系统和快捷键
+  - 错误处理和恢复
 
-#### UI Components (ui_components.py)
-- **StyleManager**: iPhone风格样式和主题管理
-- **NavigationBar**: 导航栏和启动页
-- **AlbumGrid**: 瀑布流相册展示组件
-- **ImageViewer**: 专业图片查看器
-- **StatusBar**: 现代状态栏
+#### 🔧 功能服务层
+- **AlbumScannerService** (`album_scanner.py`): 相册扫描服务
+  - 文件夹扫描和验证
+  - 结果处理和统计
+  - 扫描状态管理
+  
+- **AlbumHistoryManager** (`album_history.py`): 历史记录管理器
+  - 最近浏览记录
+  - 路径有效性检查
+  - 历史数据过滤
 
-#### ImageProcessor (image_utils.py)
-- 图片扫描和文件系统操作
-- 缩略图生成和图片处理
-- EXIF信息提取
-- 格式转换和优化
+- **AlbumFavoritesManager** (`album_favorites.py`): 收藏管理器
+  - 收藏状态管理
+  - 收藏数据持久化
+  - 收藏列表显示
 
-#### ConfigManager (config.py)
-- 配置文件管理（JSON格式）
-- 最近浏览和收藏管理
-- 用户偏好设置
-- 自动备份和恢复
+- **AlbumViewerManager** (`album_viewer.py`): 查看器管理器
+  - 图片查看器创建
+  - 窗口管理
+  - 简化查看器备用方案
+
+#### 🎨 UI层
+- **UI Components** (`ui_components.py`): 界面组件库
+  - StyleManager: iPhone风格样式管理
+  - NavigationBar: 导航栏和启动页
+  - AlbumGrid: 瀑布流相册展示
+  - ImageViewer: 专业图片查看器
+  - StatusBar: 现代状态栏
+
+- **FallbackUIManager** (`fallback_ui.py`): 备用UI管理器
+  - 简化界面创建
+  - 错误恢复机制
+  - 基础功能保障
+
+#### 🛠️ 工具层
+- **ImageProcessor** (`image_utils.py`): 图片处理工具
+- **ConfigManager** (`config.py`): 配置管理工具
+
+### 架构优势
+
+#### 🔀 模块化设计
+- **单一职责**：每个模块负责特定功能
+- **低耦合**：模块间依赖最小化
+- **高内聚**：相关功能集中管理
+- **易扩展**：新功能易于添加
+
+#### 🛡️ 错误处理
+- **分层错误处理**：每层都有错误捕获
+- **优雅降级**：功能失败时提供备用方案
+- **用户友好**：错误信息清晰易懂
+- **系统稳定**：单个模块错误不影响整体
+
+#### 🚀 性能优化
+- **按需加载**：功能模块按需导入
+- **内存优化**：组件生命周期管理
+- **响应性**：UI与业务逻辑分离
+- **可维护性**：代码结构清晰易维护
 
 ## 🔧 技术特点
 
@@ -255,4 +301,4 @@ python main.py
 
 **相册扫描器 v2.0** - 现代化的iPhone风格图片管理体验！ 🍎📱✨
 
-*让图片管理变得简单而优雅*
+*让图片管理变得简单而优雅 - 现已采用模块化架构，更稳定、更易维护*
