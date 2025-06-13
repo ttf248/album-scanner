@@ -4,7 +4,7 @@ import os
 from image_utils import ImageProcessor, SlideshowManager
 
 class StyleManager:
-    """样式管理器，负责应用程序的外观样式"""
+    """现代化样式管理器，基于Material Design 3.0"""
     
     def __init__(self, root, style):
         self.root = root
@@ -13,24 +13,41 @@ class StyleManager:
         self.setup_styles()
     
     def setup_colors(self):
-        """设置颜色方案"""
-        self.bg_color = '#f8f9fa'
-        self.accent_color = '#3f51b5'
-        self.text_color = '#2d3436'
-        self.card_bg = '#ffffff'
-        self.border_color = '#e9ecef'
-        self.hover_color = '#e8f0fe'
+        """设置现代化配色方案"""
+        # Material Design 3.0 配色
+        self.surface = '#fef7ff'          # 主背景色
+        self.surface_variant = '#f5f0f7'  # 次要背景色
+        self.primary = '#6750a4'          # 主色调
+        self.primary_variant = '#4f378b'  # 主色调变体
+        self.secondary = '#625b71'        # 次要色调
+        self.on_surface = '#1d1b20'       # 表面文字色
+        self.on_surface_variant = '#49454f' # 次要文字色
+        self.outline = '#79747e'          # 边框色
+        self.outline_variant = '#cac4d0'  # 次要边框色
+        self.surface_container = '#f3edf7' # 容器背景色
+        self.surface_container_high = '#ede7f6' # 高对比容器背景
+        self.error = '#ba1a1a'            # 错误色
+        self.on_error = '#ffffff'         # 错误文字色
+        self.success = '#006d3c'          # 成功色
+        
+        # 投影效果
+        self.shadow_color = '#00000018'
     
     def setup_styles(self):
-        """设置样式"""
-        self.root.configure(bg=self.bg_color)
-        self.style.configure('TFrame', background=self.bg_color)
-        self.style.configure('TLabel', background=self.bg_color, foreground=self.text_color)
+        """设置现代化样式"""
+        self.root.configure(bg=self.surface)
         
-        # 自定义按钮样式
-        self.style.element_create("Custom.Button.button", "from", "default")
-        self.style.layout("Custom.TButton",
-                         [('Custom.Button.button', {'children': [
+        # 基础样式
+        self.style.configure('TFrame', background=self.surface)
+        self.style.configure('TLabel', 
+                           background=self.surface, 
+                           foreground=self.on_surface,
+                           font=('SF Pro Display', 10))
+        
+        # 现代化按钮样式
+        self.style.element_create("Modern.Button.button", "from", "default")
+        self.style.layout("Modern.TButton",
+                         [('Modern.Button.button', {'children': [
                              ('Button.focus', {'children': [
                                  ('Button.padding', {'children': [
                                      ('Button.label', {'sticky': 'nswe'})
@@ -38,63 +55,117 @@ class StyleManager:
                              ], 'sticky': 'nswe'})
                          ], 'sticky': 'nswe'})])
         
-        self.style.configure("Custom.TButton",
-                            background=self.accent_color,
-                            foreground='white',
-                            borderwidth=0,
-                            focuscolor='none',
-                            padding=(10, 8),
-                            font=('Microsoft YaHei', 10))
+        # 主按钮样式
+        self.style.configure("Primary.TButton",
+                           background=self.primary,
+                           foreground='white',
+                           borderwidth=0,
+                           focuscolor='none',
+                           padding=(20, 12),
+                           font=('SF Pro Display', 10, 'bold'),
+                           relief='flat')
         
-        self.style.map("Custom.TButton",
-                      background=[('active', '#303f9f'), ('pressed', '#283593')],
-                      foreground=[('active', 'white'), ('pressed', 'white'), ('!disabled', 'white')],
+        self.style.map("Primary.TButton",
+                      background=[('active', self.primary_variant), 
+                                ('pressed', self.primary_variant)],
+                      foreground=[('active', 'white'), ('pressed', 'white')],
                       relief=[('pressed', 'flat'), ('!pressed', 'flat')])
+        
+        # 次要按钮样式
+        self.style.configure("Secondary.TButton",
+                           background=self.surface_container,
+                           foreground=self.on_surface,
+                           borderwidth=1,
+                           focuscolor='none',
+                           padding=(16, 10),
+                           font=('SF Pro Display', 10),
+                           relief='flat')
+        
+        self.style.map("Secondary.TButton",
+                      background=[('active', self.surface_container_high), 
+                                ('pressed', self.surface_container_high)],
+                      bordercolor=[('active', self.primary), ('pressed', self.primary)],
+                      relief=[('pressed', 'flat'), ('!pressed', 'flat')])
+        
+        # 图标按钮样式
+        self.style.configure("Icon.TButton",
+                           background=self.surface,
+                           foreground=self.on_surface_variant,
+                           borderwidth=0,
+                           focuscolor='none',
+                           padding=(12, 12),
+                           font=('SF Pro Display', 12),
+                           relief='flat')
+        
+        self.style.map("Icon.TButton",
+                      background=[('active', self.surface_container), 
+                                ('pressed', self.surface_container)],
+                      foreground=[('active', self.primary), ('pressed', self.primary)])
 
-        # 卡片样式
+        # 现代化卡片样式
         self.style.configure('Card.TFrame',
-                            background=self.card_bg,
-                            relief='flat',
-                            borderwidth=1,
-                            bordercolor=self.border_color)
-        self.style.configure('CardHover.TFrame',
-                            background=self.card_bg,
-                            relief='flat',
-                            borderwidth=1,
-                            bordercolor=self.accent_color)
-
+                           background='white',
+                           relief='flat',
+                           borderwidth=0,
+                           padding=20)
+        
+        self.style.configure('CardElevated.TFrame',
+                           background='white',
+                           relief='solid',
+                           borderwidth=1,
+                           bordercolor=self.outline_variant,
+                           padding=20)
+        
         # 输入框样式
-        self.style.configure('TEntry',
-                            padding=8,
-                            relief='flat',
-                            fieldbackground=self.card_bg,
-                            bordercolor=self.border_color,
-                            font=('Microsoft YaHei', 10))
-        self.style.map('TEntry',
-                      bordercolor=[('focus', self.accent_color)])
-        self.style.configure('TRadiobutton', background=self.bg_color, foreground=self.text_color)
+        self.style.configure('Modern.TEntry',
+                           fieldbackground='white',
+                           borderwidth=2,
+                           bordercolor=self.outline_variant,
+                           focuscolor=self.primary,
+                           padding=12,
+                           font=('SF Pro Display', 11))
+        
+        self.style.map('Modern.TEntry',
+                      bordercolor=[('focus', self.primary)])
+        
+        # 标签样式
+        self.style.configure('Title.TLabel',
+                           font=('SF Pro Display', 24, 'bold'),
+                           foreground=self.on_surface)
+        
+        self.style.configure('Subtitle.TLabel',
+                           font=('SF Pro Display', 14),
+                           foreground=self.on_surface_variant)
+        
+        self.style.configure('Body.TLabel',
+                           font=('SF Pro Display', 12),
+                           foreground=self.on_surface)
+        
+        self.style.configure('Caption.TLabel',
+                           font=('SF Pro Display', 10),
+                           foreground=self.on_surface_variant)
 
 class StatusBar:
-    """状态栏组件"""
+    """现代化状态栏组件"""
     
     def __init__(self, parent):
         self.parent = parent
         self.create_widgets()
         
     def create_widgets(self):
-        self.status_frame = ttk.Frame(self.parent, style='Card.TFrame')
-        self.status_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        self.status_frame = ttk.Frame(self.parent, style='Card.TFrame', padding="16 12")
+        self.status_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=20, pady=(0, 20))
         
         self.status_var = tk.StringVar(value="就绪")
         self.status_label = ttk.Label(self.status_frame, textvariable=self.status_var, 
-                                     font=('Microsoft YaHei', 9))
-        self.status_label.pack(side=tk.LEFT, padx=10, pady=5)
+                                    style='Body.TLabel')
+        self.status_label.pack(side=tk.LEFT)
         
         # 右侧信息
         self.info_var = tk.StringVar()
         self.info_label = ttk.Label(self.status_frame, textvariable=self.info_var, 
-                                   font=('Microsoft YaHei', 9))
-        self.info_label.pack(side=tk.RIGHT, padx=10, pady=5)
+                                  style='Caption.TLabel')
+        self.info_label.pack(side=tk.RIGHT)
     
     def set_status(self, message):
         """设置状态信息"""
@@ -105,7 +176,7 @@ class StatusBar:
         self.info_var.set(info)
 
 class NavigationBar:
-    """导航栏组件"""
+    """现代化导航栏组件"""
     
     def __init__(self, parent, on_browse, on_scan, path_var, on_recent, on_favorites):
         self.parent = parent
@@ -117,162 +188,243 @@ class NavigationBar:
         self.create_widgets()
     
     def create_widgets(self):
-        # 顶部导航栏
-        self.nav_frame = ttk.Frame(self.parent, padding="15 10 15 10")
-        self.nav_frame.pack(fill=tk.X)
-
-        # 标题
-        title_label = ttk.Label(self.nav_frame, text="相册扫描器", 
-                               font=('Microsoft YaHei', 16, 'bold'))
-        title_label.pack(side=tk.LEFT, padx=10)
-
-        # 功能按钮
-        func_frame = ttk.Frame(self.nav_frame)
-        func_frame.pack(side=tk.LEFT, padx=20)
+        # 主容器
+        main_container = ttk.Frame(self.parent, padding="20 20 20 0")
+        main_container.pack(fill=tk.X)
         
-        recent_btn = ttk.Button(func_frame, text="最近浏览", command=self.on_recent, 
-                               width=8, style="Custom.TButton")
-        recent_btn.pack(side=tk.LEFT, padx=5)
+        # 头部区域
+        header_frame = ttk.Frame(main_container)
+        header_frame.pack(fill=tk.X, pady=(0, 20))
         
-        fav_btn = ttk.Button(func_frame, text="收藏夹", command=self.on_favorites, 
-                            width=8, style="Custom.TButton")
-        fav_btn.pack(side=tk.LEFT, padx=5)
-
-        # 路径选择区域
-        path_frame = ttk.Frame(self.nav_frame)
-        path_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=10)
-
-        ttk.Label(path_frame, text="相册路径:", 
-                 font=('Microsoft YaHei', 10)).pack(side=tk.LEFT, padx=5)
-
-        path_entry = ttk.Entry(path_frame, textvariable=self.path_var, width=50, 
-                              font=('Microsoft YaHei', 10))
-        path_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-
-        browse_btn = ttk.Button(path_frame, text="浏览", command=self.on_browse, 
-                               width=8, style="Custom.TButton")
-        browse_btn.pack(side=tk.LEFT, padx=5)
-
-        scan_btn = ttk.Button(path_frame, text="扫描相册", command=self.on_scan, 
-                             width=10, style="Custom.TButton")
-        scan_btn.pack(side=tk.LEFT, padx=5)
+        # 应用标题
+        title_frame = ttk.Frame(header_frame)
+        title_frame.pack(side=tk.LEFT, fill=tk.Y)
+        
+        app_title = ttk.Label(title_frame, text="相册扫描器", style='Title.TLabel')
+        app_title.pack(anchor=tk.W)
+        
+        subtitle = ttk.Label(title_frame, text="发现和管理您的图片收藏", style='Subtitle.TLabel')
+        subtitle.pack(anchor=tk.W, pady=(4, 0))
+        
+        # 快捷操作按钮
+        action_frame = ttk.Frame(header_frame)
+        action_frame.pack(side=tk.RIGHT)
+        
+        recent_btn = ttk.Button(action_frame, text="📚 最近浏览", 
+                               command=self.on_recent, 
+                               style="Secondary.TButton")
+        recent_btn.pack(side=tk.LEFT, padx=(0, 12))
+        
+        fav_btn = ttk.Button(action_frame, text="⭐ 收藏夹", 
+                           command=self.on_favorites, 
+                           style="Secondary.TButton")
+        fav_btn.pack(side=tk.LEFT)
+        
+        # 搜索和扫描区域
+        search_container = ttk.Frame(main_container, style='CardElevated.TFrame')
+        search_container.pack(fill=tk.X, pady=(0, 20))
+        
+        # 路径输入区域
+        path_frame = ttk.Frame(search_container)
+        path_frame.pack(fill=tk.X, pady=(0, 16))
+        
+        path_label = ttk.Label(path_frame, text="选择相册文件夹", style='Body.TLabel')
+        path_label.pack(anchor=tk.W, pady=(0, 8))
+        
+        input_frame = ttk.Frame(path_frame)
+        input_frame.pack(fill=tk.X)
+        
+        self.path_entry = ttk.Entry(input_frame, textvariable=self.path_var, 
+                                   style='Modern.TEntry', font=('SF Pro Display', 11))
+        self.path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
+        
+        browse_btn = ttk.Button(input_frame, text="📁 浏览", 
+                               command=self.on_browse, 
+                               style="Secondary.TButton")
+        browse_btn.pack(side=tk.LEFT, padx=(0, 12))
+        
+        scan_btn = ttk.Button(input_frame, text="🔍 开始扫描", 
+                             command=self.on_scan, 
+                             style="Primary.TButton")
+        scan_btn.pack(side=tk.LEFT)
 
 class AlbumGrid:
-    """相册网格显示组件"""
+    """现代化相册网格显示组件"""
     
     def __init__(self, parent, on_album_click, on_favorite_toggle):
         self.parent = parent
         self.on_album_click = on_album_click
         self.on_favorite_toggle = on_favorite_toggle
-        self.max_cols = 4
         self.create_widgets()
     
     def create_widgets(self):
-        # 相册显示区域
-        self.album_frame = ttk.Frame(self.parent, padding="10")
-        self.album_frame.pack(fill=tk.BOTH, expand=True)
-        self.album_frame.rowconfigure(0, weight=1)
-        self.album_frame.columnconfigure(0, weight=1)
+        # 主容器
+        self.main_container = ttk.Frame(self.parent, padding="20 0 20 0")
+        self.main_container.pack(fill=tk.BOTH, expand=True)
         
-        # 创建滚动条
-        scrollbar = ttk.Scrollbar(self.album_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # 创建画布和滚动条
+        canvas_frame = ttk.Frame(self.main_container)
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
         
-        # 创建画布
-        self.canvas = tk.Canvas(self.album_frame, yscrollcommand=scrollbar.set, 
-                               highlightthickness=0)
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=self.canvas.yview)
+        self.canvas = tk.Canvas(canvas_frame, highlightthickness=0, bg='#fef7ff')
+        self.scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
         
-        # 创建内部框架
-        self.inner_frame = ttk.Frame(self.canvas)
-        self.canvas.create_window((0, 0), window=self.inner_frame, anchor="nw")
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        )
         
-        # 绑定事件
-        self.inner_frame.bind("<Configure>", self.on_frame_configure)
-        self.canvas.bind("<Configure>", self.on_canvas_configure)
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+        
+        # 绑定鼠标滚轮
+        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
+        
+        # 响应式网格列数
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self.cols = 3
+        
+    def _on_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
     
-    def on_canvas_configure(self, event):
-        """画布大小变化时调整"""
-        self.canvas.itemconfig(self.canvas.find_withtag("all")[0], width=event.width)
-
-    def on_frame_configure(self, event):
-        """更新画布滚动区域"""
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+    def _on_canvas_configure(self, event):
+        # 根据窗口宽度调整列数
+        width = event.width
+        if width < 800:
+            self.cols = 1
+        elif width < 1200:
+            self.cols = 2
+        elif width < 1600:
+            self.cols = 3
+        else:
+            self.cols = 4
+        
+        self.canvas.itemconfig(self.canvas.find_withtag("all")[0], width=width)
     
     def clear_albums(self):
         """清空相册显示"""
-        for widget in self.inner_frame.winfo_children():
+        for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
     
     def display_albums(self, albums):
         """显示相册列表"""
         self.clear_albums()
         
-        row = 0
-        col = 0
+        if not albums:
+            self._show_empty_state()
+            return
         
-        for album in albums:
+        # 创建网格布局
+        for i, album in enumerate(albums):
+            row = i // self.cols
+            col = i % self.cols
             self.create_album_card(album, row, col)
-            
-            col += 1
-            if col >= self.max_cols:
-                col = 0
-                row += 1
+    
+    def _show_empty_state(self):
+        """显示空状态"""
+        empty_frame = ttk.Frame(self.scrollable_frame, padding="40")
+        empty_frame.pack(fill=tk.BOTH, expand=True)
+        
+        empty_icon = ttk.Label(empty_frame, text="📷", font=('SF Pro Display', 48))
+        empty_icon.pack(pady=(0, 16))
+        
+        empty_title = ttk.Label(empty_frame, text="暂无相册", style='Title.TLabel')
+        empty_title.pack(pady=(0, 8))
+        
+        empty_desc = ttk.Label(empty_frame, text="选择文件夹并点击扫描来发现您的相册", 
+                              style='Subtitle.TLabel')
+        empty_desc.pack()
     
     def create_album_card(self, album, row, col):
-        """创建相册卡片"""
-        album_frame = ttk.Frame(self.inner_frame, padding="15", 
-                               relief=tk.FLAT, style='Card.TFrame')
-        album_frame.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
+        """创建现代化相册卡片"""
+        # 卡片容器
+        card_frame = ttk.Frame(self.scrollable_frame, style='Card.TFrame')
+        card_frame.grid(row=row, column=col, padx=12, pady=12, sticky="nsew")
         
-        # 绑定悬停效果
-        album_frame.bind('<Enter>', lambda e, f=album_frame: self.on_enter(e, f))
-        album_frame.bind('<Leave>', lambda e, f=album_frame: self.on_leave(e, f))
-
+        # 配置网格权重
+        self.scrollable_frame.grid_columnconfigure(col, weight=1)
+        
+        # 卡片内容容器
+        content_frame = ttk.Frame(card_frame, style='Card.TFrame')
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
+        
+        # 封面图片容器
+        cover_container = ttk.Frame(content_frame, style='Card.TFrame')
+        cover_container.pack(fill=tk.X, pady=(0, 16))
+        
         # 创建封面
         if album['cover_image']:
-            photo = ImageProcessor.create_thumbnail(album['cover_image'])
+            photo = ImageProcessor.create_thumbnail(album['cover_image'], size=(280, 200))
             if photo:
-                cover_label = ttk.Label(album_frame, image=photo)
+                cover_label = ttk.Label(cover_container, image=photo, 
+                                      style='Card.TLabel', cursor='hand2')
                 cover_label.image = photo
+                cover_label.pack()
                 cover_label.bind("<Button-1>", 
                                lambda e, path=album['path']: self.on_album_click(path))
-                cover_label.pack(pady=5)
-
-        # 文件夹名称
-        name_label = ttk.Label(album_frame, text=album['name'], wraplength=200, 
-                              font=('Microsoft YaHei', 10, 'bold'))
-        name_label.pack(pady=10)
-
-        # 图片数量和大小
-        info_text = f"{album.get('image_count', len(album['image_files']))}张图片"
+                
+                # 添加悬停效果
+                cover_label.bind('<Enter>', lambda e: self._on_card_enter(card_frame))
+                cover_label.bind('<Leave>', lambda e: self._on_card_leave(card_frame))
+        
+        # 相册信息
+        info_frame = ttk.Frame(content_frame, style='Card.TFrame')
+        info_frame.pack(fill=tk.X)
+        
+        # 相册名称
+        name_label = ttk.Label(info_frame, text=album['name'], 
+                              style='Body.TLabel', 
+                              font=('SF Pro Display', 14, 'bold'))
+        name_label.pack(anchor=tk.W, pady=(0, 4))
+        
+        # 相册统计
+        stats_frame = ttk.Frame(info_frame, style='Card.TFrame')
+        stats_frame.pack(fill=tk.X, pady=(0, 12))
+        
+        count_text = f"📸 {album.get('image_count', len(album['image_files']))} 张"
+        count_label = ttk.Label(stats_frame, text=count_text, style='Caption.TLabel')
+        count_label.pack(side=tk.LEFT)
+        
         if 'folder_size' in album:
-            info_text += f" • {album['folder_size']}"
-        count_label = ttk.Label(album_frame, text=info_text, 
-                               font=('Microsoft YaHei', 9), foreground='#666666')
-        count_label.pack(pady=2)
+            size_label = ttk.Label(stats_frame, text=f"💾 {album['folder_size']}", 
+                                 style='Caption.TLabel')
+            size_label.pack(side=tk.RIGHT)
+        
+        # 操作按钮
+        action_frame = ttk.Frame(info_frame, style='Card.TFrame')
+        action_frame.pack(fill=tk.X)
+        
+        # 查看按钮
+        view_btn = ttk.Button(action_frame, text="打开相册", 
+                             command=lambda: self.on_album_click(album['path']),
+                             style="Primary.TButton")
+        view_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
         
         # 收藏按钮
-        fav_btn = ttk.Button(album_frame, text="★" if self.is_favorite(album['path']) else "☆", 
-                            command=lambda: self.on_favorite_toggle(album['path']),
-                            width=3)
-        fav_btn.pack(pady=5)
+        fav_icon = "⭐" if self.is_favorite(album['path']) else "☆"
+        fav_btn = ttk.Button(action_frame, text=fav_icon, 
+                           command=lambda: self.on_favorite_toggle(album['path']),
+                           style="Icon.TButton", width=3)
+        fav_btn.pack(side=tk.RIGHT)
     
     def is_favorite(self, album_path):
-        """检查是否为收藏（需要从主应用获取）"""
-        return False  # 默认实现，实际使用时会被重写
+        """检查是否为收藏"""
+        return False  # 默认实现
     
-    def on_enter(self, event, frame):
-        """鼠标悬停效果"""
-        frame.configure(style='CardHover.TFrame')
-
-    def on_leave(self, event, frame):
-        """鼠标离开效果"""
-        frame.configure(style='Card.TFrame')
+    def _on_card_enter(self, card_frame):
+        """卡片悬停效果"""
+        card_frame.configure(style='CardElevated.TFrame')
+        
+    def _on_card_leave(self, card_frame):
+        """卡片离开效果"""
+        card_frame.configure(style='Card.TFrame')
 
 class ImageViewer:
-    """图片查看器组件"""
+    """现代化图片查看器组件"""
     
     def __init__(self, parent, image_files, config_manager=None):
         self.parent = parent
@@ -285,77 +437,83 @@ class ImageViewer:
         self.slideshow = SlideshowManager(self)
         self.fullscreen = False
         
+        self.setup_window()
         self.create_widgets()
         self.bind_events()
         self.load_image()
+    
+    def setup_window(self):
+        """设置窗口样式"""
+        self.parent.configure(bg='#1c1c1e')
         
     def create_widgets(self):
-        # 主框架
+        # 主容器
         main_frame = ttk.Frame(self.parent)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # 工具栏
-        toolbar_frame = ttk.Frame(main_frame)
-        toolbar_frame.pack(fill=tk.X, pady=5)
+        # 顶部工具栏
+        toolbar = ttk.Frame(main_frame, style='Card.TFrame', padding="16 12")
+        toolbar.pack(fill=tk.X, padx=20, pady=(20, 0))
         
-        # 导航按钮
-        nav_frame = ttk.Frame(toolbar_frame)
+        # 左侧导航
+        nav_frame = ttk.Frame(toolbar)
         nav_frame.pack(side=tk.LEFT)
         
-        ttk.Button(nav_frame, text="上一张", command=self.prev_image, 
-                  style="Custom.TButton").pack(side=tk.LEFT, padx=2)
-        ttk.Button(nav_frame, text="下一张", command=self.next_image, 
-                  style="Custom.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(nav_frame, text="⬅️", command=self.prev_image, 
+                  style="Icon.TButton", width=4).pack(side=tk.LEFT, padx=2)
+        ttk.Button(nav_frame, text="➡️", command=self.next_image, 
+                  style="Icon.TButton", width=4).pack(side=tk.LEFT, padx=2)
         
-        # 旋转按钮
-        rotate_frame = ttk.Frame(toolbar_frame)
-        rotate_frame.pack(side=tk.LEFT, padx=20)
+        # 中间工具
+        tools_frame = ttk.Frame(toolbar)
+        tools_frame.pack(side=tk.LEFT, padx=40)
         
-        ttk.Button(rotate_frame, text="↺", command=self.rotate_left, 
-                  width=3, style="Custom.TButton").pack(side=tk.LEFT, padx=2)
-        ttk.Button(rotate_frame, text="↻", command=self.rotate_right, 
-                  width=3, style="Custom.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(tools_frame, text="↺", command=self.rotate_left, 
+                  style="Icon.TButton", width=4).pack(side=tk.LEFT, padx=2)
+        ttk.Button(tools_frame, text="↻", command=self.rotate_right, 
+                  style="Icon.TButton", width=4).pack(side=tk.LEFT, padx=2)
         
-        # 幻灯片控制
-        slideshow_frame = ttk.Frame(toolbar_frame)
-        slideshow_frame.pack(side=tk.LEFT, padx=20)
-        
-        self.play_btn = ttk.Button(slideshow_frame, text="播放", command=self.toggle_slideshow, 
-                                  style="Custom.TButton")
+        self.play_btn = ttk.Button(tools_frame, text="▶️", command=self.toggle_slideshow, 
+                                  style="Icon.TButton", width=4)
         self.play_btn.pack(side=tk.LEFT, padx=2)
         
-        # EXIF按钮
-        ttk.Button(slideshow_frame, text="信息", command=self.show_exif, 
-                  style="Custom.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(tools_frame, text="ℹ️", command=self.show_exif, 
+                  style="Icon.TButton", width=4).pack(side=tk.LEFT, padx=2)
         
-        # 状态显示
-        ttk.Label(toolbar_frame, textvariable=self.status_var, 
-                 font=('Microsoft YaHei', 10)).pack(side=tk.RIGHT, padx=10)
-
+        # 右侧状态
+        status_frame = ttk.Frame(toolbar)
+        status_frame.pack(side=tk.RIGHT)
+        
+        ttk.Label(status_frame, textvariable=self.status_var, 
+                 style='Body.TLabel').pack()
+        
         # 图片显示区域
-        self.image_frame = ttk.Frame(main_frame)
-        self.image_frame.pack(fill=tk.BOTH, expand=True)
+        image_area = ttk.Frame(main_frame)
+        image_area.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        self.image_container = ttk.Frame(self.image_frame, padding=15, style='Card.TFrame')
-        self.image_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        self.image_label = ttk.Label(self.image_container)
+        self.image_container = ttk.Frame(image_area, style='Card.TFrame')
+        self.image_container.pack(fill=tk.BOTH, expand=True)
+        
+        self.image_label = ttk.Label(self.image_container, style='Card.TLabel')
         self.image_label.pack(expand=True)
-
-        # 图片信息
-        self.image_info = ttk.Label(self.image_frame, text='', font=('Microsoft YaHei', 10))
-        self.image_info.pack(pady=5)
         
-        # 缩放模式
-        zoom_frame = ttk.Frame(self.parent)
-        zoom_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(zoom_frame, text="缩放模式:").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(zoom_frame, text="适应窗口", variable=self.zoom_mode, 
-                       value="fit", command=self.on_zoom_change).pack(side=tk.LEFT)
-        ttk.Radiobutton(zoom_frame, text="原始大小", variable=self.zoom_mode, 
-                       value="original", command=self.on_zoom_change).pack(side=tk.LEFT)
-        ttk.Radiobutton(zoom_frame, text="填充", variable=self.zoom_mode, 
-                       value="fill", command=self.on_zoom_change).pack(side=tk.LEFT)
+        # 底部信息栏
+        info_bar = ttk.Frame(main_frame, style='Card.TFrame', padding="16 12")
+        info_bar.pack(fill=tk.X, padx=20, pady=(0, 20))
+        
+        self.image_info = ttk.Label(info_bar, text='', style='Caption.TLabel')
+        self.image_info.pack(side=tk.LEFT)
+        
+        # 缩放模式选择
+        zoom_frame = ttk.Frame(info_bar)
+        zoom_frame.pack(side=tk.RIGHT)
+        
+        ttk.Label(zoom_frame, text="缩放:", style='Caption.TLabel').pack(side=tk.LEFT, padx=(0, 8))
+        
+        modes = [("适应", "fit"), ("原始", "original"), ("填充", "fill")]
+        for text, value in modes:
+            ttk.Radiobutton(zoom_frame, text=text, variable=self.zoom_mode, 
+                           value=value, command=self.on_zoom_change).pack(side=tk.LEFT, padx=4)
     
     def bind_events(self):
         """绑定键盘事件"""
@@ -370,6 +528,11 @@ class ImageViewer:
         self.parent.bind("r", lambda e: self.rotate_right())
         self.parent.bind("i", lambda e: self.show_exif())
         self.parent.focus_set()
+    
+    def set_zoom_mode(self, mode):
+        """设置缩放模式"""
+        self.zoom_mode.set(mode)
+        self.on_zoom_change()
     
     def on_zoom_change(self):
         """缩放模式改变时保存配置"""
@@ -404,10 +567,10 @@ class ImageViewer:
         """切换幻灯片播放"""
         if self.slideshow.is_playing:
             self.slideshow.stop_slideshow()
-            self.play_btn.config(text="播放")
+            self.play_btn.config(text="▶️")
         else:
             self.slideshow.start_slideshow()
-            self.play_btn.config(text="暂停")
+            self.play_btn.config(text="⏸️")
     
     def show_exif(self):
         """显示EXIF信息"""
@@ -417,27 +580,39 @@ class ImageViewer:
         image_path = self.image_files[self.current_index]
         exif_data = ImageProcessor.get_image_exif(image_path)
         
-        # 创建EXIF信息窗口
+        # 创建现代化EXIF信息窗口
         exif_window = Toplevel(self.parent)
         exif_window.title("图片信息")
-        exif_window.geometry("400x600")
-        exif_window.resizable(False, False)
+        exif_window.geometry("500x700")
+        exif_window.configure(bg='#fef7ff')
         
-        # 创建滚动文本框
-        text_frame = ttk.Frame(exif_window)
-        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # 标题
+        title_frame = ttk.Frame(exif_window, padding="20 20 20 10")
+        title_frame.pack(fill=tk.X)
         
-        text_widget = tk.Text(text_frame, wrap=tk.WORD, font=('Microsoft YaHei', 9))
-        scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
+        ttk.Label(title_frame, text="图片信息", style='Title.TLabel').pack(anchor=tk.W)
+        ttk.Label(title_frame, text=os.path.basename(image_path), 
+                 style='Subtitle.TLabel').pack(anchor=tk.W, pady=(4, 0))
+        
+        # 内容区域
+        content_frame = ttk.Frame(exif_window, padding="20 10 20 20")
+        content_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 滚动文本框
+        text_widget = tk.Text(content_frame, wrap=tk.WORD, 
+                             font=('SF Pro Display', 10),
+                             bg='white', fg='#1d1b20',
+                             borderwidth=0, padx=16, pady=16)
+        scrollbar = ttk.Scrollbar(content_frame, orient=tk.VERTICAL, command=text_widget.yview)
         text_widget.configure(yscrollcommand=scrollbar.set)
         
         text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # 显示EXIF信息
-        text_widget.insert(tk.END, f"文件路径: {image_path}\n\n")
+        text_widget.insert(tk.END, f"📁 文件路径\n{image_path}\n\n")
         for key, value in exif_data.items():
-            text_widget.insert(tk.END, f"{key}: {value}\n")
+            text_widget.insert(tk.END, f"📋 {key}\n{value}\n\n")
         
         text_widget.config(state=tk.DISABLED)
 
@@ -447,8 +622,8 @@ class ImageViewer:
             return
             
         image_path = self.image_files[self.current_index]
-        window_width = self.image_frame.winfo_width()
-        window_height = self.image_frame.winfo_height()
+        window_width = self.image_container.winfo_width()
+        window_height = self.image_container.winfo_height()
         
         if window_width < 10: 
             window_width = 800
@@ -458,11 +633,11 @@ class ImageViewer:
         result = ImageProcessor.load_image_with_mode(
             image_path, window_width, window_height, self.zoom_mode.get(), self.rotation)
         
-        if result[0]:  # photo存在
+        if result[0]:
             photo, width, height, orig_width, orig_height = result
             self.image_label.config(image=photo, text="")
             self.image_label.image = photo
-            self.status_var.set(f"{self.current_index + 1}/{len(self.image_files)}")
+            self.status_var.set(f"{self.current_index + 1} / {len(self.image_files)}")
             
             # 显示详细信息
             size_info = f"显示: {width}×{height}"
@@ -471,9 +646,9 @@ class ImageViewer:
             if self.rotation != 0:
                 size_info += f" 旋转: {self.rotation}°"
             
-            self.image_info.config(text=f"{os.path.basename(image_path)} - {size_info}")
+            self.image_info.config(text=f"{os.path.basename(image_path)} • {size_info}")
         else:
-            self.image_label.config(text="无法加载图片", image="")
+            self.image_label.config(text="❌ 无法加载图片", image="")
             self.image_label.image = None
 
     def prev_image(self):
