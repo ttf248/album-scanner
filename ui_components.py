@@ -150,24 +150,24 @@ class NavigationBar:
         title = tk.Label(actions_frame, text="快速操作", 
                         font=get_safe_font('Arial', 20, 'bold'), 
                         bg='#F2F2F7', fg='#1D1D1F')
-        title.pack(anchor='w', pady=(0, 15))
+        title.pack(anchor='w', pady=(0, 20))
         
-        # 网格容器
+        # 网格容器 - 调整配置
         grid_frame = tk.Frame(actions_frame, bg='#F2F2F7')
         grid_frame.pack(fill='x')
         
-        # 配置网格权重
+        # 配置网格权重 - 让网格更均匀
         for i in range(2):
-            grid_frame.grid_columnconfigure(i, weight=1)
+            grid_frame.grid_columnconfigure(i, weight=1, minsize=200)
         for i in range(2):
-            grid_frame.grid_rowconfigure(i, weight=1)
+            grid_frame.grid_rowconfigure(i, weight=1, minsize=180)
         
         # 快速操作数据
         actions = [
             ("📚", "最近浏览", "查看最近打开的相册", self.recent_callback, "#007AFF"),
             ("⭐", "收藏夹", "管理您收藏的相册", self.favorites_callback, "#FF9500"),
             ("🔍", "智能扫描", "自动发现图片文件夹", self.scan_callback, "#34C759"),
-            ("⚙️", "设置", "个性化您的体验", lambda: None, "#6D6D80")
+            ("⚙️", "设置", "个性化您的体验", lambda: self._show_settings(), "#6D6D80")
         ]
         
         # 创建操作卡片
@@ -177,94 +177,166 @@ class NavigationBar:
     
     def create_action_card(self, parent, icon, title, desc, command, color, row, col):
         """创建操作卡片"""
-        # 卡片主框架
-        card_frame = tk.Frame(parent, bg=color, relief='flat', bd=0)
-        card_frame.grid(row=row, column=col, padx=10, pady=10, sticky='nsew')
+        # 卡片主框架 - 调整尺寸
+        card_frame = tk.Frame(parent, bg=color, relief='flat', bd=0,
+                             width=180, height=160)  # 设置固定尺寸
+        card_frame.grid(row=row, column=col, padx=12, pady=12, sticky='nsew')
+        card_frame.grid_propagate(False)  # 防止内容改变大小
         
         # 内容框架
         content_frame = tk.Frame(card_frame, bg=color)
-        content_frame.pack(fill='both', expand=True, padx=15, pady=15)
+        content_frame.place(relx=0.5, rely=0.5, anchor='center')  # 居中放置
         
-        # 图标
+        # 图标 - 调整大小
         icon_label = tk.Label(content_frame, text=icon, 
-                             font=get_safe_font('Arial', 24), bg=color, fg='white')
-        icon_label.pack(pady=(0, 8))
+                             font=get_safe_font('Arial', 32), bg=color, fg='white')
+        icon_label.pack(pady=(0, 10))
         
-        # 标题
+        # 标题 - 调整字体大小
         title_label = tk.Label(content_frame, text=title,
-                              font=get_safe_font('Arial', 16, 'bold'), 
+                              font=get_safe_font('Arial', 14, 'bold'), 
                               bg=color, fg='white')
-        title_label.pack(pady=(0, 4))
+        title_label.pack(pady=(0, 6))
         
-        # 描述
+        # 描述 - 调整字体和换行
         desc_label = tk.Label(content_frame, text=desc,
-                             font=get_safe_font('Arial', 11), 
+                             font=get_safe_font('Arial', 10), 
                              bg=color, fg='#E5E5E7', 
-                             wraplength=120, justify='center')
-        desc_label.pack(pady=(0, 12))
+                             wraplength=140, justify='center')
+        desc_label.pack(pady=(0, 15))
         
-        # 按钮
+        # 按钮 - 调整样式
         action_btn = tk.Button(content_frame, text="使用",
-                              font=get_safe_font('Arial', 12, 'bold'), 
+                              font=get_safe_font('Arial', 11, 'bold'), 
                               bg='white', fg=color,
-                              relief='flat', bd=0, padx=20, pady=6,
-                              cursor='hand2', command=command)
+                              relief='flat', bd=0, padx=18, pady=6,
+                              cursor='hand2', command=command,
+                              activebackground='#f0f0f0', activeforeground=color)
         action_btn.pack()
         
         # 悬停效果
         def on_enter(e):
-            card_frame.configure(relief='raised', bd=2)
+            card_frame.configure(relief='raised', bd=1)
+            card_frame.configure(bg=self._lighten_color(color))
+            content_frame.configure(bg=self._lighten_color(color))
+            for child in content_frame.winfo_children():
+                if isinstance(child, tk.Label):
+                    child.configure(bg=self._lighten_color(color))
+        
         def on_leave(e):
             card_frame.configure(relief='flat', bd=0)
+            card_frame.configure(bg=color)
+            content_frame.configure(bg=color)
+            for child in content_frame.winfo_children():
+                if isinstance(child, tk.Label):
+                    child.configure(bg=color)
         
         card_frame.bind('<Enter>', on_enter)
         card_frame.bind('<Leave>', on_leave)
         content_frame.bind('<Enter>', on_enter)
         content_frame.bind('<Leave>', on_leave)
+        
+        # 为所有子组件绑定悬停事件
+        for child in content_frame.winfo_children():
+            child.bind('<Enter>', on_enter)
+            child.bind('<Leave>', on_leave)
     
+    def _lighten_color(self, color):
+        """让颜色变亮一点"""
+        color_map = {
+            "#007AFF": "#1A8AFF",
+            "#FF9500": "#FFA520", 
+            "#34C759": "#4DD169",
+            "#6D6D80": "#8D8D90"
+        }
+        return color_map.get(color, color)
+
+    def create_quick_actions(self):
+        """创建快速操作卡片"""
+        actions_frame = tk.Frame(self.main_container, bg='#F2F2F7')
+        actions_frame.pack(fill='x', pady=(0, 30))
+        
+        # 标题
+        title = tk.Label(actions_frame, text="快速操作", 
+                        font=get_safe_font('Arial', 20, 'bold'), 
+                        bg='#F2F2F7', fg='#1D1D1F')
+        title.pack(anchor='w', pady=(0, 20))
+        
+        # 网格容器 - 调整配置
+        grid_frame = tk.Frame(actions_frame, bg='#F2F2F7')
+        grid_frame.pack(fill='x')
+        
+        # 配置网格权重 - 让网格更均匀
+        for i in range(2):
+            grid_frame.grid_columnconfigure(i, weight=1, minsize=200)
+        for i in range(2):
+            grid_frame.grid_rowconfigure(i, weight=1, minsize=180)
+        
+        # 快速操作数据
+        actions = [
+            ("📚", "最近浏览", "查看最近打开的相册", self.recent_callback, "#007AFF"),
+            ("⭐", "收藏夹", "管理您收藏的相册", self.favorites_callback, "#FF9500"),
+            ("🔍", "智能扫描", "自动发现图片文件夹", self.scan_callback, "#34C759"),
+            ("⚙️", "设置", "个性化您的体验", lambda: self._show_settings(), "#6D6D80")
+        ]
+        
+        # 创建操作卡片
+        for i, (icon, title, desc, command, color) in enumerate(actions):
+            row, col = divmod(i, 2)
+            self.create_action_card(grid_frame, icon, title, desc, command, color, row, col)
+    
+    def _show_settings(self):
+        """显示设置对话框"""
+        messagebox.showinfo("设置", "设置功能即将推出，敬请期待！")
+
     def create_path_input(self):
         """创建路径输入区域"""
         path_frame = tk.Frame(self.main_container, bg='#FFFFFF', relief='flat', bd=0)
         path_frame.pack(fill='x', pady=(0, 20))
         
+        # 添加圆角效果的模拟
+        path_frame.configure(highlightbackground='#E5E5EA', highlightthickness=1)
+        
         # 内容框架
         content_frame = tk.Frame(path_frame, bg='#FFFFFF')
-        content_frame.pack(fill='x', padx=20, pady=20)
+        content_frame.pack(fill='x', padx=25, pady=25)
         
         # 标题
         title = tk.Label(content_frame, text="选择相册文件夹", 
                         font=get_safe_font('Arial', 18, 'bold'), 
                         bg='#FFFFFF', fg='#1D1D1F')
-        title.pack(anchor='w', pady=(0, 15))
+        title.pack(anchor='w', pady=(0, 18))
         
         # 路径输入框
         input_frame = tk.Frame(content_frame, bg='#FFFFFF')
-        input_frame.pack(fill='x', pady=(0, 15))
+        input_frame.pack(fill='x', pady=(0, 18))
         
         self.path_entry = tk.Entry(input_frame, textvariable=self.path_var,
                                   font=get_safe_font('Arial', 14), 
                                   bg='#F2F2F7', fg='#1D1D1F',
-                                  relief='flat', bd=0)
-        self.path_entry.pack(side='left', fill='x', expand=True, ipady=8, padx=(0, 10))
+                                  relief='flat', bd=0, highlightthickness=0)
+        self.path_entry.pack(side='left', fill='x', expand=True, ipady=12, padx=(0, 15))
         
         # 按钮框架
         button_frame = tk.Frame(content_frame, bg='#FFFFFF')
         button_frame.pack(fill='x')
         
-        # 浏览按钮
+        # 浏览按钮 - 调整样式
         browse_btn = tk.Button(button_frame, text="📁 选择文件夹",
                               font=get_safe_font('Arial', 14, 'bold'), 
                               bg='#007AFF', fg='white',
-                              relief='flat', bd=0, padx=20, pady=10,
-                              cursor='hand2', command=self.browse_callback)
-        browse_btn.pack(side='left', padx=(0, 10))
+                              relief='flat', bd=0, padx=25, pady=12,
+                              cursor='hand2', command=self.browse_callback,
+                              activebackground='#0056CC', activeforeground='white')
+        browse_btn.pack(side='left', padx=(0, 15))
         
-        # 扫描按钮
+        # 扫描按钮 - 调整样式
         scan_btn = tk.Button(button_frame, text="🔍 开始扫描",
                             font=get_safe_font('Arial', 14, 'bold'), 
                             bg='#34C759', fg='white',
-                            relief='flat', bd=0, padx=20, pady=10,
-                            cursor='hand2', command=self.scan_callback)
+                            relief='flat', bd=0, padx=25, pady=12,
+                            cursor='hand2', command=self.scan_callback,
+                            activebackground='#28A745', activeforeground='white')
         scan_btn.pack(side='left')
 
 class AlbumGrid:
