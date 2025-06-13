@@ -1,0 +1,254 @@
+import os
+import tkinter as tk
+from tkinter import filedialog, ttk, messagebox
+from PIL import Image, ImageTk
+import glob
+
+class PhotoAlbumApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("本地相册预览")
+        self.root.geometry("1000x700")
+        
+        # 存储配置的文件夹路径
+        self.folder_path = ""
+        
+        # 创建UI
+        self.create_widgets()
+        
+    def create_widgets(self):
+        # 顶部导航栏
+        nav_frame = ttk.Frame(self.root, padding="10")
+        nav_frame.pack(fill=tk.X)
+        
+        ttk.Label(nav_frame, text="相册路径:").pack(side=tk.LEFT, padx=5)
+        
+        self.path_var = tk.StringVar()
+        path_entry = ttk.Entry(nav_frame, textvariable=self.path_var, width=50)
+        path_entry.pack(side=tk.LEFT, padx=5)
+        
+        browse_btn = ttk.Button(nav_frame, text="浏览", command=self.browse_folder)
+        browse_btn.pack(side=tk.LEFT, padx=5)
+        
+        scan_btn = ttk.Button(nav_frame, text="扫描相册", command=self.scan_albums)
+        scan_btn.pack(side=tk.LEFT, padx=5)
+        
+        # 相册显示区域
+        self.album_frame = ttk.Frame(self.root, padding="10")
+        self.album_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 创建滚动条
+        scrollbar = ttk.Scrollbar(self.album_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 创建画布用于放置相册封面
+        self.canvas = tk.Canvas(self.album_frame, yscrollcommand=scrollbar.set)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.canvas.yview)
+        
+        # 创建内部框架放置相册封面
+        self.inner_frame = ttk.Frame(self.canvas)
+        self.canvas.create_window((0, 0), window=self.inner_frame, anchor="nw")
+        
+        # 绑定事件以更新滚动区域
+        self.inner_frame.bind("<Configure>", self.on_frame_configure)
+        
+    def on_frame_configure(self, event):
+        """更新画布滚动区域"""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        
+    def browse_folder(self):
+        """浏览并选择文件夹"""
+        folder_selected = filedialog.askdirectory()
+        if folder_selected:
+            self.folder_path = folder_selected
+            self.path_var.set(folder_selected)
+            
+    def scan_albums(self):
+        """扫描文件夹并显示相册封面"""
+        if not self.folder_path:
+            messagebox.showwarning("警告", "请先选择相册文件夹")
+            return
+            
+        # 清空现有内容
+        for widget in self.inner_frame.winfo_children():
+            widget.destroy()
+            
+        # 递归获取所有包含图片的子文件夹
+        subfolders = []
+        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
+        
+        for root, dirs, files in os.walk(self.folder_path):
+            # 检查当前目录是否包含图片文件
+            has_images = any(os.path.splitext(file)[1].lower() in image_extensions for file in files)
+            if has_images:
+                subfolders.append(root)
+        
+        if not subfolders:
+            messagebox.showinfo("提示", "未找到包含图片的文件夹")
+            return
+            
+        # 为每个包含图片的文件夹创建相册封面
+        row = 0
+        col = 0
+        max_cols = 4  # 每行显示4个相册
+        
+        for folder in subfolders:
+            # 获取文件夹名称
+            folder_name = os.path.basename(folder)
+            
+            # 获取文件夹中的图片文件
+            image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.gif', '*.bmp']
+            image_files = []
+            
+            for ext in image_extensions:
+                image_files.extend(glob.glob(os.path.join(folder, ext), recursive=False))
+                image_files.extend(glob.glob(os.path.join(folder, ext.upper()), recursive=False))
+                
+            if not image_files:
+                continue  # 跳过没有图片的文件夹
+                
+            # 按文件名排序
+            image_files.sort()
+            
+            # 获取第一张图片作为封面
+            cover_path = image_files[0]
+            
+            # 创建相册封面框架
+            album_frame = ttk.Frame(self.inner_frame, padding="5", relief=tk.RAISED)
+            album_frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            
+            # 加载并调整封面图片大小
+            try:
+                img = Image.open(cover_path)
+                img.thumbnail((200, 200))  # 调整为缩略图
+                photo = ImageTk.PhotoImage(img)
+                
+                # 创建封面标签并绑定点击事件
+                cover_label = ttk.Label(album_frame, image=photo)
+                cover_label.image = photo  # 保持引用
+                cover_label.bind("<Button-1>", lambda e, f=folder: self.open_album(f))
+                cover_label.pack(pady=5)
+                
+                # 添加文件夹名称标签
+                name_label = ttk.Label(album_frame, text=folder_name, wraplength=200)
+                name_label.pack(pady=5)
+                
+                # 更新行列位置
+                col += 1
+                if col >= max_cols:
+                    col = 0
+                    row += 1
+                    
+            except Exception as e:
+                print(f"无法加载图片 {cover_path}: {e}")
+                continue
+                
+    def open_album(self, folder_path):
+        """打开相册查看所有图片"""
+        # 创建新窗口显示相册内容
+        album_window = tk.Toplevel(self.root)
+        album_window.title(os.path.basename(folder_path))
+        album_window.geometry("800x600")
+        
+        # 获取文件夹中的所有图片
+        image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.gif', '*.bmp']
+        image_files = []
+        
+        for ext in image_extensions:
+            image_files.extend(glob.glob(os.path.join(folder_path, ext), recursive=False))
+            image_files.extend(glob.glob(os.path.join(folder_path, ext.upper()), recursive=False))
+            
+        if not image_files:
+            messagebox.showinfo("提示", "该文件夹中没有图片")
+            album_window.destroy()
+            return
+            
+        # 按文件名排序
+        image_files.sort()
+        
+        # 创建图片查看器
+        img_viewer = ImageViewer(album_window, image_files)
+        
+class ImageViewer:
+    def __init__(self, parent, image_files):
+        self.parent = parent
+        self.image_files = image_files
+        self.current_index = 0
+        
+        self.create_widgets()
+        self.load_image()
+        
+    def create_widgets(self):
+        # 创建主框架
+        main_frame = ttk.Frame(self.parent)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 创建导航按钮
+        nav_frame = ttk.Frame(main_frame)
+        nav_frame.pack(fill=tk.X, pady=10)
+        
+        ttk.Button(nav_frame, text="上一张", command=self.prev_image).pack(side=tk.LEFT, padx=10)
+        ttk.Button(nav_frame, text="下一张", command=self.next_image).pack(side=tk.LEFT, padx=10)
+        
+        self.status_var = tk.StringVar()
+        ttk.Label(nav_frame, textvariable=self.status_var).pack(side=tk.LEFT, padx=10)
+        
+        # 创建图片显示区域
+        self.image_frame = ttk.Frame(main_frame)
+        self.image_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.image_label = ttk.Label(self.image_frame)
+        self.image_label.pack(expand=True)
+        
+        # 绑定键盘事件
+        self.parent.bind("<Left>", lambda e: self.prev_image())
+        self.parent.bind("<Right>", lambda e: self.next_image())
+        
+    def load_image(self):
+        """加载当前索引的图片"""
+        if 0 <= self.current_index < len(self.image_files):
+            image_path = self.image_files[self.current_index]
+            
+            # 更新状态
+            self.status_var.set(f"{self.current_index + 1}/{len(self.image_files)}: {os.path.basename(image_path)}")
+            
+            # 加载并调整图片大小以适应窗口
+            try:
+                img = Image.open(image_path)
+                
+                # 获取窗口大小
+                window_width = self.image_frame.winfo_width()
+                window_height = self.image_frame.winfo_height()
+                
+                # 如果窗口还没初始化，使用默认大小
+                if window_width == 1:
+                    window_width = 800
+                if window_height == 1:
+                    window_height = 500
+                    
+                # 计算调整后的大小，保持纵横比
+                img.thumbnail((window_width - 40, window_height - 40))
+                photo = ImageTk.PhotoImage(img)
+                
+                self.image_label.config(image=photo)
+                self.image_label.image = photo  # 保持引用
+                
+            except Exception as e:
+                print(f"无法加载图片 {image_path}: {e}")
+                self.image_label.config(text=f"无法加载图片: {str(e)}")
+                
+    def prev_image(self):
+        """显示上一张图片"""
+        self.current_index = (self.current_index - 1) % len(self.image_files)
+        self.load_image()
+        
+    def next_image(self):
+        """显示下一张图片"""
+        self.current_index = (self.current_index + 1) % len(self.image_files)
+        self.load_image()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = PhotoAlbumApp(root)
+    root.mainloop()
