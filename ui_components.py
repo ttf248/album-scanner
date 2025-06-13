@@ -553,106 +553,116 @@ class AlbumGrid:
             pass
 
 class ImageViewer:
-    """iPhone风格图片查看器"""
+    """图片查看器"""
     
     def __init__(self, parent, image_files, config_manager):
         self.parent = parent
         self.image_files = image_files
         self.config_manager = config_manager
         self.current_index = 0
-        self.zoom_level = 1.0
+        self.current_image = None
+        self.zoom_factor = 1.0
         self.is_fullscreen = False
         
-        self.setup_window()
+        # 设置窗口属性
+        self.parent.configure(bg='#1D1D1F')
+        
         self.create_widgets()
         self.bind_events()
         self.load_current_image()
     
-    def setup_window(self):
-        """设置iPhone风格窗口"""
-        self.parent.configure(bg='#000000')
-        
-        # 设置窗口标题
-        if self.image_files:
-            filename = os.path.basename(self.image_files[0])
-            folder_name = os.path.basename(os.path.dirname(self.image_files[0]))
-            self.parent.title(f"📷 {folder_name} - {filename}")
-    
     def create_widgets(self):
-        """创建iPhone风格查看器组件"""
-        # 顶部工具栏 - iPhone风格
-        toolbar = tk.Frame(self.parent, bg='#F2F2F7', height=60)
-        toolbar.pack(fill='x', side='top')
-        toolbar.pack_propagate(False)
+        """创建查看器组件"""
+        # 顶部工具栏
+        self.toolbar = tk.Frame(self.parent, bg='#2C2C2E', height=50)
+        self.toolbar.pack(side='top', fill='x')
+        self.toolbar.pack_propagate(False)
         
         # 工具栏内容
-        toolbar_content = tk.Frame(toolbar, bg='#F2F2F7')
-        toolbar_content.pack(fill='both', expand=True, padx=20, pady=10)
+        toolbar_content = tk.Frame(self.toolbar, bg='#2C2C2E')
+        toolbar_content.pack(fill='both', expand=True, padx=15, pady=10)
         
-        # 左侧导航按钮
-        nav_frame = tk.Frame(toolbar_content, bg='#F2F2F7')
-        nav_frame.pack(side='left')
+        # 文件信息
+        self.file_info_var = tk.StringVar()
+        info_label = tk.Label(toolbar_content, textvariable=self.file_info_var,
+                             font=get_safe_font('Arial', 12, 'bold'),
+                             bg='#2C2C2E', fg='white')
+        info_label.pack(side='left')
         
-        prev_btn = tk.Button(nav_frame, text="◀", command=self.prev_image,
-                           font=get_safe_font('Arial', 16, 'bold'),
-                           bg='#007AFF', fg='white', relief='flat', bd=0,
-                           width=4, height=1, cursor='hand2')
-        prev_btn.pack(side='left', padx=2)
+        # 右侧按钮
+        btn_frame = tk.Frame(toolbar_content, bg='#2C2C2E')
+        btn_frame.pack(side='right')
         
-        next_btn = tk.Button(nav_frame, text="▶", command=self.next_image,
-                           font=get_safe_font('Arial', 16, 'bold'),
-                           bg='#007AFF', fg='white', relief='flat', bd=0,
-                           width=4, height=1, cursor='hand2')
-        next_btn.pack(side='left', padx=2)
+        # 缩放按钮
+        zoom_out_btn = tk.Button(btn_frame, text="缩小", 
+                               font=get_safe_font('Arial', 10),
+                               bg='#48484A', fg='white', relief='flat',
+                               command=self.zoom_out)
+        zoom_out_btn.pack(side='left', padx=2)
         
-        # 中间信息显示
-        self.info_var = tk.StringVar()
-        info_label = tk.Label(toolbar_content, textvariable=self.info_var,
-                            font=get_safe_font('Arial', 14, 'bold'),
-                            bg='#F2F2F7', fg='#1D1D1F')
-        info_label.pack(expand=True)
+        zoom_in_btn = tk.Button(btn_frame, text="放大", 
+                              font=get_safe_font('Arial', 10),
+                              bg='#48484A', fg='white', relief='flat',
+                              command=self.zoom_in)
+        zoom_in_btn.pack(side='left', padx=2)
         
-        # 右侧功能按钮
-        tools_frame = tk.Frame(toolbar_content, bg='#F2F2F7')
-        tools_frame.pack(side='right')
+        reset_btn = tk.Button(btn_frame, text="重置", 
+                            font=get_safe_font('Arial', 10),
+                            bg='#48484A', fg='white', relief='flat',
+                            command=self.reset_zoom)
+        reset_btn.pack(side='left', padx=2)
         
-        fullscreen_btn = tk.Button(tools_frame, text="⛶", command=self.toggle_fullscreen,
-                                 font=get_safe_font('Arial', 16, 'bold'),
-                                 bg='#34C759', fg='white', relief='flat', bd=0,
-                                 width=4, height=1, cursor='hand2')
-        fullscreen_btn.pack(side='left', padx=2)
-        
-        # 图片显示区域
-        self.image_container = tk.Frame(self.parent, bg='#000000')
-        self.image_container.pack(fill='both', expand=True)
+        # 主图片显示区域
+        self.image_frame = tk.Frame(self.parent, bg='#1D1D1F')
+        self.image_frame.pack(fill='both', expand=True)
         
         # 图片标签
-        self.image_label = tk.Label(self.image_container, bg='#000000')
+        self.image_label = tk.Label(self.image_frame, bg='#1D1D1F')
         self.image_label.pack(expand=True)
         
-        # 底部状态栏
-        status_bar = tk.Frame(self.parent, bg='#F2F2F7', height=40)
-        status_bar.pack(fill='x', side='bottom')
-        status_bar.pack_propagate(False)
+        # 底部控制栏
+        self.control_frame = tk.Frame(self.parent, bg='#2C2C2E', height=60)
+        self.control_frame.pack(side='bottom', fill='x')
+        self.control_frame.pack_propagate(False)
         
-        # 状态信息
-        self.status_var = tk.StringVar()
-        status_label = tk.Label(status_bar, textvariable=self.status_var,
-                              font=get_safe_font('Arial', 12),
-                              bg='#F2F2F7', fg='#6D6D80')
-        status_label.pack(side='left', padx=20, pady=10)
+        # 控制栏内容
+        control_content = tk.Frame(self.control_frame, bg='#2C2C2E')
+        control_content.pack(fill='both', expand=True, padx=20, pady=15)
+        
+        # 导航按钮
+        prev_btn = tk.Button(control_content, text="⬅ 上一张", 
+                           font=get_safe_font('Arial', 12, 'bold'),
+                           bg='#007AFF', fg='white', relief='flat',
+                           padx=20, pady=8, command=self.prev_image)
+        prev_btn.pack(side='left')
+        
+        next_btn = tk.Button(control_content, text="下一张 ➡", 
+                           font=get_safe_font('Arial', 12, 'bold'),
+                           bg='#007AFF', fg='white', relief='flat',
+                           padx=20, pady=8, command=self.next_image)
+        next_btn.pack(side='left', padx=(10, 0))
+        
+        # 进度信息
+        self.progress_var = tk.StringVar()
+        progress_label = tk.Label(control_content, textvariable=self.progress_var,
+                                font=get_safe_font('Arial', 12),
+                                bg='#2C2C2E', fg='#8E8E93')
+        progress_label.pack(side='right')
     
     def bind_events(self):
-        """绑定键盘和鼠标事件"""
-        self.parent.bind('<Left>', lambda e: self.prev_image())
-        self.parent.bind('<Right>', lambda e: self.next_image())
-        self.parent.bind('<Escape>', lambda e: self.exit_fullscreen() if self.is_fullscreen else self.parent.destroy())
-        self.parent.bind('<F11>', lambda e: self.toggle_fullscreen())
-        self.parent.bind('<space>', lambda e: self.next_image())
+        """绑定事件"""
+        # 键盘事件
+        self.parent.bind('<Key>', self.on_key_press)
         self.parent.focus_set()
         
-        # 图片双击全屏
-        self.image_label.bind('<Double-Button-1>', lambda e: self.toggle_fullscreen())
+        # 双击全屏
+        self.image_label.bind('<Double-Button-1>', self.toggle_fullscreen)
+        
+        # 鼠标滚轮缩放
+        self.image_label.bind('<MouseWheel>', self.on_mouse_wheel)
+        
+        # 窗口大小变化时重新调整图片
+        self.parent.bind('<Configure>', self.on_window_resize)
     
     def load_current_image(self):
         """加载当前图片"""
@@ -662,143 +672,133 @@ class ImageViewer:
         try:
             image_path = self.image_files[self.current_index]
             
-            # 获取窗口尺寸
-            window_width = self.image_container.winfo_width() or 800
-            window_height = self.image_container.winfo_height() or 600
+            # 使用PIL加载图片
+            with Image.open(image_path) as img:
+                # 获取原始尺寸
+                original_width, original_height = img.size
+                
+                # 获取显示区域尺寸
+                display_width = self.image_frame.winfo_width() or 800
+                display_height = self.image_frame.winfo_height() or 600
+                
+                # 计算缩放比例
+                if display_width > 100 and display_height > 100:  # 确保窗口已初始化
+                    scale_x = display_width / original_width
+                    scale_y = display_height / original_height
+                    scale = min(scale_x, scale_y) * 0.9  # 留一些边距
+                    
+                    # 应用用户缩放
+                    scale *= self.zoom_factor
+                    
+                    # 计算新尺寸
+                    new_width = int(original_width * scale)
+                    new_height = int(original_height * scale)
+                    
+                    # 调整图片大小
+                    if new_width > 0 and new_height > 0:
+                        resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                        
+                        # 转换为PhotoImage
+                        self.current_image = ImageTk.PhotoImage(resized_img)
+                        
+                        # 显示图片
+                        self.image_label.configure(image=self.current_image)
+                        self.image_label.image = self.current_image  # 保持引用
             
-            # 加载图片
-            result = ImageProcessor.load_image_with_mode(
-                image_path, window_width, window_height, "fit", 0)
+            # 更新信息显示
+            filename = os.path.basename(image_path)
+            self.file_info_var.set(f"📸 {filename}")
             
-            if result and result[0]:
-                photo, width, height, orig_width, orig_height = result
-                self.image_label.configure(image=photo)
-                self.image_label.image = photo  # 保持引用
-                
-                # 更新信息显示
-                filename = os.path.basename(image_path)
-                self.info_var.set(f"{self.current_index + 1} / {len(self.image_files)}")
-                self.status_var.set(f"{filename} • {orig_width}×{orig_height}")
-                
-                # 更新窗口标题
-                folder_name = os.path.basename(os.path.dirname(image_path))
-                self.parent.title(f"📷 {folder_name} - {filename}")
-            else:
-                self.image_label.configure(image="", text="❌ 无法加载图片",
-                                         font=get_safe_font('Arial', 16),
-                                         fg='white')
-                self.image_label.image = None
-                
+            progress_text = f"{self.current_index + 1} / {len(self.image_files)}"
+            self.progress_var.set(progress_text)
+            
         except Exception as e:
-            print(f"加载图片失败: {e}")
-            self.image_label.configure(image="", text="❌ 加载失败",
-                                     font=get_safe_font('Arial', 16),
-                                     fg='white')
-            self.image_label.image = None
+            print(f"加载图片失败 {image_path}: {e}")
+            # 显示错误信息
+            error_text = f"无法加载图片\n{os.path.basename(image_path)}"
+            self.image_label.configure(image='', text=error_text, 
+                                     font=get_safe_font('Arial', 14),
+                                     fg='#FF3B30')
     
     def prev_image(self):
         """上一张图片"""
-        if self.image_files:
-            self.current_index = (self.current_index - 1) % len(self.image_files)
+        if self.current_index > 0:
+            self.current_index -= 1
             self.load_current_image()
     
     def next_image(self):
         """下一张图片"""
-        if self.image_files:
-            self.current_index = (self.current_index + 1) % len(self.image_files)
+        if self.current_index < len(self.image_files) - 1:
+            self.current_index += 1
             self.load_current_image()
     
-    def toggle_fullscreen(self):
+    def zoom_in(self):
+        """放大"""
+        self.zoom_factor *= 1.2
+        self.load_current_image()
+    
+    def zoom_out(self):
+        """缩小"""
+        self.zoom_factor /= 1.2
+        if self.zoom_factor < 0.1:
+            self.zoom_factor = 0.1
+        self.load_current_image()
+    
+    def reset_zoom(self):
+        """重置缩放"""
+        self.zoom_factor = 1.0
+        self.load_current_image()
+    
+    def toggle_fullscreen(self, event=None):
         """切换全屏模式"""
+        self.is_fullscreen = not self.is_fullscreen
+        
         if self.is_fullscreen:
-            self.exit_fullscreen()
-        else:
+            # 进入全屏
+            self.toolbar.pack_forget()
+            self.control_frame.pack_forget()
             self.parent.attributes('-fullscreen', True)
-            self.is_fullscreen = True
-    
-    def exit_fullscreen(self):
-        """退出全屏"""
-        self.parent.attributes('-fullscreen', False)
-        self.is_fullscreen = False
-        """切换全屏模式"""
-        if self.fullscreen:
-            self.exit_fullscreen()
         else:
-            self.parent.attributes('-fullscreen', True)
-            self.fullscreen = True
+            # 退出全屏
+            self.parent.attributes('-fullscreen', False)
+            self.toolbar.pack(side='top', fill='x')
+            self.control_frame.pack(side='bottom', fill='x')
+        
+        # 重新加载图片以适应新尺寸
+        self.parent.after(100, self.load_current_image)
     
-    def exit_fullscreen(self):
-        """退出全屏"""
-        self.parent.attributes('-fullscreen', False)
-        self.fullscreen = False
+    def on_key_press(self, event):
+        """键盘事件处理"""
+        if event.keysym == 'Left':
+            self.prev_image()
+        elif event.keysym == 'Right':
+            self.next_image()
+        elif event.keysym == 'Escape':
+            if self.is_fullscreen:
+                self.toggle_fullscreen()
+            else:
+                self.parent.destroy()
+        elif event.keysym == 'F11':
+            self.toggle_fullscreen()
+        elif event.keysym == 'plus' or event.keysym == 'equal':
+            self.zoom_in()
+        elif event.keysym == 'minus':
+            self.zoom_out()
+        elif event.keysym == '0':
+            self.reset_zoom()
     
-    def rotate_left(self):
-        """向左旋转90度"""
-        self.rotation = (self.rotation - 90) % 360
-        self.load_image()
-    
-    def rotate_right(self):
-        """向右旋转90度"""
-        self.rotation = (self.rotation + 90) % 360
-        self.load_image()
-    
-    def toggle_slideshow(self):
-        """切换幻灯片播放"""
-        if self.slideshow.is_playing:
-            self.slideshow.stop_slideshow()
-            self.play_btn.config(text="▶️")
+    def on_mouse_wheel(self, event):
+        """鼠标滚轮事件"""
+        if event.delta > 0:
+            self.zoom_in()
         else:
-            self.slideshow.start_slideshow()
-            self.play_btn.config(text="⏸️")
+            self.zoom_out()
     
-    def show_exif(self):
-        """显示EXIF信息"""
-        if not (0 <= self.current_index < len(self.image_files)):
-            return
-        
-        image_path = self.image_files[self.current_index]
-        exif_data = ImageProcessor.get_image_exif(image_path)
-        
-        # 创建现代化EXIF信息窗口
-        exif_window = Toplevel(self.parent)
-        exif_window.title("图片信息")
-        exif_window.geometry("500x700")
-        exif_window.configure(bg='#fef7ff')
-        
-        # 标题
-        title_frame = ttk.Frame(exif_window, padding="20 20 20 10")
-        title_frame.pack(fill=tk.X)
-        
-        ttk.Label(title_frame, text="图片信息", style='Title.TLabel').pack(anchor=tk.W)
-        ttk.Label(title_frame, text=os.path.basename(image_path), 
-                 style='Subtitle.TLabel').pack(anchor=tk.W, pady=(4, 0))
-        
-        # 内容区域
-        content_frame = ttk.Frame(exif_window, padding="20 10 20 20")
-        content_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # 滚动文本框
-        text_widget = tk.Text(content_frame, wrap=tk.WORD, 
-                             font=('SF Pro Display', 10),
-                             bg='white', fg='#1d1b20',
-                             borderwidth=0, padx=16, pady=16)
-        scrollbar = ttk.Scrollbar(content_frame, orient=tk.VERTICAL, command=text_widget.yview)
-        text_widget.configure(yscrollcommand=scrollbar.set)
-        
-        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # 显示EXIF信息
-        text_widget.insert(tk.END, f"📁 文件路径\n{image_path}\n\n")
-        for key, value in exif_data.items():
-            text_widget.insert(tk.END, f"📋 {key}\n{value}\n\n")
-        
-        text_widget.config(state=tk.DISABLED)
-
-    def load_image(self):
-        """加载当前图片"""
-        if not (0 <= self.current_index < len(self.image_files)):
-            return
+    def on_window_resize(self, event):
+        """窗口大小变化事件"""
+        # 只在主窗口大小变化时重新加载图片
+        if event.widget == self.parent:
+            self.parent.after(100, self.load_current_image)
             
         image_path = self.image_files[self.current_index]
         window_width = self.image_container.winfo_width()
