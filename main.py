@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
+import os
 from ttkthemes import ThemedTk
 from config import ConfigManager
 from image_utils import ImageProcessor
