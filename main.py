@@ -58,27 +58,80 @@ class PhotoAlbumApp:
         
     def create_widgets(self):
         """创建现代化UI组件"""
-        # 导航栏
-        self.nav_bar = NavigationBar(
-            self.root, 
-            self.browse_folder, 
-            self.scan_albums, 
-            self.path_var,
-            self.show_recent_albums,
-            self.show_favorites
-        )
+        try:
+            # 导航栏
+            self.nav_bar = NavigationBar(
+                self.root, 
+                self.browse_folder, 
+                self.scan_albums, 
+                self.path_var,
+                self.show_recent_albums,
+                self.show_favorites
+            )
+            
+            # 相册网格
+            self.album_grid = AlbumGrid(self.root, self.open_album, self.toggle_favorite)
+            # 设置收藏检查函数
+            self.album_grid.is_favorite = self.config_manager.is_favorite
+            
+            # 状态栏
+            self.status_bar = StatusBar(self.root)
+            
+            # 初始状态
+            self.status_bar.set_status("欢迎使用相册扫描器")
+            
+        except Exception as e:
+            print(f"创建UI组件时发生错误: {e}")
+            # 创建简化版本的UI
+            self.create_fallback_ui()
+
+    def create_fallback_ui(self):
+        """创建备用简化UI"""
+        print("使用简化界面模式")
         
-        # 相册网格
-        self.album_grid = AlbumGrid(self.root, self.open_album, self.toggle_favorite)
-        # 设置收藏检查函数
+        # 简单的顶部框架
+        top_frame = tk.Frame(self.root, bg='lightgray')
+        top_frame.pack(fill='x', padx=10, pady=5)
+        
+        # 路径输入
+        tk.Label(top_frame, text="相册路径:", bg='lightgray').pack(side='left')
+        path_entry = tk.Entry(top_frame, textvariable=self.path_var, width=50)
+        path_entry.pack(side='left', padx=5)
+        
+        # 按钮
+        tk.Button(top_frame, text="浏览", command=self.browse_folder).pack(side='left', padx=2)
+        tk.Button(top_frame, text="扫描", command=self.scan_albums).pack(side='left', padx=2)
+        tk.Button(top_frame, text="最近", command=self.show_recent_albums).pack(side='left', padx=2)
+        tk.Button(top_frame, text="收藏", command=self.show_favorites).pack(side='left', padx=2)
+        
+        # 主内容区域
+        main_frame = tk.Frame(self.root, bg='white')
+        main_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # 创建简单的相册网格
+        self.album_grid = AlbumGrid(main_frame, self.open_album, self.toggle_favorite)
         self.album_grid.is_favorite = self.config_manager.is_favorite
         
-        # 状态栏
-        self.status_bar = StatusBar(self.root)
+        # 简单的状态显示
+        status_frame = tk.Frame(self.root, bg='lightgray', height=30)
+        status_frame.pack(side='bottom', fill='x')
+        status_frame.pack_propagate(False)
         
-        # 初始状态
-        self.status_bar.set_status("欢迎使用相册扫描器")
+        self.status_var = tk.StringVar(value="使用简化界面模式")
+        status_label = tk.Label(status_frame, textvariable=self.status_var, bg='lightgray')
+        status_label.pack(side='left', padx=10, pady=5)
         
+        # 创建一个简单的状态栏对象
+        class SimpleStatusBar:
+            def __init__(self, status_var):
+                self.status_var = status_var
+            def set_status(self, message):
+                self.status_var.set(message)
+            def set_info(self, message):
+                pass  # 简化版本不显示额外信息
+        
+        self.status_bar = SimpleStatusBar(self.status_var)
+
     def bind_events(self):
         """绑定事件"""
         # 窗口关闭事件

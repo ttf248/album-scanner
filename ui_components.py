@@ -2,429 +2,580 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox, Toplevel
 import os
 from image_utils import ImageProcessor, SlideshowManager
+from PIL import Image, ImageTk
+
+def get_safe_font(font_family, size, style=None):
+    """获取安全的字体配置"""
+    try:
+        if style:
+            return (font_family, size, style)
+        else:
+            return (font_family, size)
+    except:
+        # 如果字体不可用，使用默认字体
+        if style:
+            return ('Arial', size, style)
+        else:
+            return ('Arial', size)
 
 class StyleManager:
-    """现代化样式管理器，基于Material Design 3.0"""
+    """样式管理器"""
     
     def __init__(self, root, style):
         self.root = root
         self.style = style
-        self.setup_colors()
-        self.setup_styles()
+        
+        # 设置颜色主题
+        self.colors = {
+            'bg_primary': '#F2F2F7',      # iOS 浅灰背景
+            'bg_secondary': '#FFFFFF',     # 白色背景
+            'text_primary': '#000000',     # 主要文字
+            'text_secondary': '#6D6D80',   # 次要文字
+            'accent': '#007AFF',           # iOS 蓝色
+            'success': '#34C759',          # 成功绿色
+            'warning': '#FF9500',          # 警告橙色
+            'error': '#FF3B30',            # 错误红色
+            'card_bg': '#FFFFFF',          # 卡片背景
+            'border': '#C6C6C8'            # 边框颜色
+        }
+        
+        # 设置字体
+        self.fonts = {
+            'title': get_safe_font('SF Pro Display', 24, 'bold'),
+            'heading': get_safe_font('SF Pro Display', 18, 'bold'),
+            'body': get_safe_font('SF Pro Display', 14),
+            'caption': get_safe_font('SF Pro Display', 12),
+            'button': get_safe_font('SF Pro Display', 14, 'bold')
+        }
+        
+        self.configure_styles()
     
-    def setup_colors(self):
-        """设置现代化配色方案"""
-        # Material Design 3.0 配色
-        self.surface = '#fef7ff'          # 主背景色
-        self.surface_variant = '#f5f0f7'  # 次要背景色
-        self.primary = '#6750a4'          # 主色调
-        self.primary_variant = '#4f378b'  # 主色调变体
-        self.secondary = '#625b71'        # 次要色调
-        self.on_surface = '#1d1b20'       # 表面文字色
-        self.on_surface_variant = '#49454f' # 次要文字色
-        self.outline = '#79747e'          # 边框色
-        self.outline_variant = '#cac4d0'  # 次要边框色
-        self.surface_container = '#f3edf7' # 容器背景色
-        self.surface_container_high = '#ede7f6' # 高对比容器背景
-        self.error = '#ba1a1a'            # 错误色
-        self.on_error = '#ffffff'         # 错误文字色
-        self.success = '#006d3c'          # 成功色
-        
-        # 投影效果
-        self.shadow_color = '#00000018'
-    
-    def setup_styles(self):
-        """设置现代化样式"""
-        self.root.configure(bg=self.surface)
-        
-        # 基础样式
-        self.style.configure('TFrame', background=self.surface)
-        self.style.configure('TLabel', 
-                           background=self.surface, 
-                           foreground=self.on_surface,
-                           font=('SF Pro Display', 10))
-        
-        # 现代化按钮样式
-        self.style.element_create("Modern.Button.button", "from", "default")
-        self.style.layout("Modern.TButton",
-                         [('Modern.Button.button', {'children': [
-                             ('Button.focus', {'children': [
-                                 ('Button.padding', {'children': [
-                                     ('Button.label', {'sticky': 'nswe'})
-                                 ], 'sticky': 'nswe'})
-                             ], 'sticky': 'nswe'})
-                         ], 'sticky': 'nswe'})])
-        
-        # 主按钮样式
-        self.style.configure("Primary.TButton",
-                           background=self.primary,
-                           foreground='white',
-                           borderwidth=0,
-                           focuscolor='none',
-                           padding=(20, 12),
-                           font=('SF Pro Display', 10, 'bold'),
-                           relief='flat')
-        
-        self.style.map("Primary.TButton",
-                      background=[('active', self.primary_variant), 
-                                ('pressed', self.primary_variant)],
-                      foreground=[('active', 'white'), ('pressed', 'white')],
-                      relief=[('pressed', 'flat'), ('!pressed', 'flat')])
-        
-        # 次要按钮样式
-        self.style.configure("Secondary.TButton",
-                           background=self.surface_container,
-                           foreground=self.on_surface,
-                           borderwidth=1,
-                           focuscolor='none',
-                           padding=(16, 10),
-                           font=('SF Pro Display', 10),
-                           relief='flat')
-        
-        self.style.map("Secondary.TButton",
-                      background=[('active', self.surface_container_high), 
-                                ('pressed', self.surface_container_high)],
-                      bordercolor=[('active', self.primary), ('pressed', self.primary)],
-                      relief=[('pressed', 'flat'), ('!pressed', 'flat')])
-        
-        # 图标按钮样式
-        self.style.configure("Icon.TButton",
-                           background=self.surface,
-                           foreground=self.on_surface_variant,
-                           borderwidth=0,
-                           focuscolor='none',
-                           padding=(12, 12),
-                           font=('SF Pro Display', 12),
-                           relief='flat')
-        
-        self.style.map("Icon.TButton",
-                      background=[('active', self.surface_container), 
-                                ('pressed', self.surface_container)],
-                      foreground=[('active', self.primary), ('pressed', self.primary)])
-
-        # 现代化卡片样式
-        self.style.configure('Card.TFrame',
-                           background='white',
-                           relief='flat',
-                           borderwidth=0,
-                           padding=20)
-        
-        self.style.configure('CardElevated.TFrame',
-                           background='white',
-                           relief='solid',
-                           borderwidth=1,
-                           bordercolor=self.outline_variant,
-                           padding=20)
-        
-        # 输入框样式
-        self.style.configure('Modern.TEntry',
-                           fieldbackground='white',
-                           borderwidth=2,
-                           bordercolor=self.outline_variant,
-                           focuscolor=self.primary,
-                           padding=12,
-                           font=('SF Pro Display', 11))
-        
-        self.style.map('Modern.TEntry',
-                      bordercolor=[('focus', self.primary)])
-        
-        # 标签样式
-        self.style.configure('Title.TLabel',
-                           font=('SF Pro Display', 24, 'bold'),
-                           foreground=self.on_surface)
-        
-        self.style.configure('Subtitle.TLabel',
-                           font=('SF Pro Display', 14),
-                           foreground=self.on_surface_variant)
-        
-        self.style.configure('Body.TLabel',
-                           font=('SF Pro Display', 12),
-                           foreground=self.on_surface)
-        
-        self.style.configure('Caption.TLabel',
-                           font=('SF Pro Display', 10),
-                           foreground=self.on_surface_variant)
+    def configure_styles(self):
+        """配置样式"""
+        # 设置根窗口背景
+        self.root.configure(bg=self.colors['bg_primary'])
 
 class StatusBar:
-    """现代化状态栏组件"""
+    """状态栏组件"""
     
     def __init__(self, parent):
         self.parent = parent
-        self.create_widgets()
-        
-    def create_widgets(self):
-        self.status_frame = ttk.Frame(self.parent, style='Card.TFrame', padding="16 12")
-        self.status_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=20, pady=(0, 20))
-        
-        self.status_var = tk.StringVar(value="就绪")
-        self.status_label = ttk.Label(self.status_frame, textvariable=self.status_var, 
-                                    style='Body.TLabel')
-        self.status_label.pack(side=tk.LEFT)
-        
-        # 右侧信息
+        self.status_var = tk.StringVar()
         self.info_var = tk.StringVar()
-        self.info_label = ttk.Label(self.status_frame, textvariable=self.info_var, 
-                                  style='Caption.TLabel')
-        self.info_label.pack(side=tk.RIGHT)
+        
+        self.create_widgets()
+    
+    def create_widgets(self):
+        """创建状态栏组件"""
+        # 状态栏主框架
+        self.status_frame = tk.Frame(self.parent, bg='#F2F2F7', height=40)
+        self.status_frame.pack(side='bottom', fill='x')
+        self.status_frame.pack_propagate(False)
+        
+        # 内容框架
+        content_frame = tk.Frame(self.status_frame, bg='#F2F2F7')
+        content_frame.pack(fill='both', expand=True, padx=20, pady=8)
+        
+        # 状态标签
+        self.status_label = tk.Label(content_frame, textvariable=self.status_var,
+                                   font=get_safe_font('Arial', 12), bg='#F2F2F7', fg='#1D1D1F')
+        self.status_label.pack(side='left')
+        
+        # 信息标签
+        self.info_label = tk.Label(content_frame, textvariable=self.info_var,
+                                 font=get_safe_font('Arial', 12), bg='#F2F2F7', fg='#6D6D80')
+        self.info_label.pack(side='right')
     
     def set_status(self, message):
-        """设置状态信息"""
+        """设置状态消息"""
         self.status_var.set(message)
     
-    def set_info(self, info):
-        """设置右侧信息"""
-        self.info_var.set(info)
+    def set_info(self, message):
+        """设置信息消息"""
+        self.info_var.set(message)
 
 class NavigationBar:
-    """现代化导航栏组件"""
+    """iPhone风格导航栏"""
     
-    def __init__(self, parent, on_browse, on_scan, path_var, on_recent, on_favorites):
+    def __init__(self, parent, browse_callback, scan_callback, path_var, 
+                 recent_callback, favorites_callback):
         self.parent = parent
-        self.on_browse = on_browse
-        self.on_scan = on_scan
+        self.browse_callback = browse_callback
+        self.scan_callback = scan_callback
         self.path_var = path_var
-        self.on_recent = on_recent
-        self.on_favorites = on_favorites
+        self.recent_callback = recent_callback
+        self.favorites_callback = favorites_callback
+        
         self.create_widgets()
     
     def create_widgets(self):
+        """创建导航栏组件"""
         # 主容器
-        main_container = ttk.Frame(self.parent, padding="20 20 20 0")
-        main_container.pack(fill=tk.X)
+        self.main_container = tk.Frame(self.parent, bg='#F2F2F7')
+        self.main_container.pack(fill='both', expand=True, padx=20, pady=20)
         
-        # 头部区域
-        header_frame = ttk.Frame(main_container)
-        header_frame.pack(fill=tk.X, pady=(0, 20))
+        # 创建启动页
+        self.create_hero_section()
+        self.create_quick_actions()
+        self.create_path_input()
+    
+    def create_hero_section(self):
+        """创建英雄区域"""
+        hero_frame = tk.Frame(self.main_container, bg='#F2F2F7')
+        hero_frame.pack(fill='x', pady=(0, 30))
         
-        # 应用标题
-        title_frame = ttk.Frame(header_frame)
-        title_frame.pack(side=tk.LEFT, fill=tk.Y)
+        # 应用图标（使用Emoji）
+        icon_label = tk.Label(hero_frame, text="📱", 
+                             font=get_safe_font('Arial', 48), bg='#F2F2F7')
+        icon_label.pack(pady=(0, 15))
         
-        app_title = ttk.Label(title_frame, text="相册扫描器", style='Title.TLabel')
-        app_title.pack(anchor=tk.W)
+        # 标题
+        title_label = tk.Label(hero_frame, text="相册扫描器", 
+                              font=get_safe_font('Arial', 28, 'bold'), 
+                              bg='#F2F2F7', fg='#1D1D1F')
+        title_label.pack(pady=(0, 8))
         
-        subtitle = ttk.Label(title_frame, text="发现和管理您的图片收藏", style='Subtitle.TLabel')
-        subtitle.pack(anchor=tk.W, pady=(4, 0))
+        # 副标题
+        subtitle_label = tk.Label(hero_frame, text="iPhone风格的现代化图片管理", 
+                                 font=get_safe_font('Arial', 16), 
+                                 bg='#F2F2F7', fg='#6D6D80')
+        subtitle_label.pack()
+    
+    def create_quick_actions(self):
+        """创建快速操作卡片"""
+        actions_frame = tk.Frame(self.main_container, bg='#F2F2F7')
+        actions_frame.pack(fill='x', pady=(0, 30))
         
-        # 快捷操作按钮
-        action_frame = ttk.Frame(header_frame)
-        action_frame.pack(side=tk.RIGHT)
+        # 标题
+        title = tk.Label(actions_frame, text="快速操作", 
+                        font=get_safe_font('Arial', 20, 'bold'), 
+                        bg='#F2F2F7', fg='#1D1D1F')
+        title.pack(anchor='w', pady=(0, 15))
         
-        recent_btn = ttk.Button(action_frame, text="📚 最近浏览", 
-                               command=self.on_recent, 
-                               style="Secondary.TButton")
-        recent_btn.pack(side=tk.LEFT, padx=(0, 12))
+        # 网格容器
+        grid_frame = tk.Frame(actions_frame, bg='#F2F2F7')
+        grid_frame.pack(fill='x')
         
-        fav_btn = ttk.Button(action_frame, text="⭐ 收藏夹", 
-                           command=self.on_favorites, 
-                           style="Secondary.TButton")
-        fav_btn.pack(side=tk.LEFT)
+        # 配置网格权重
+        for i in range(2):
+            grid_frame.grid_columnconfigure(i, weight=1)
+        for i in range(2):
+            grid_frame.grid_rowconfigure(i, weight=1)
         
-        # 搜索和扫描区域
-        search_container = ttk.Frame(main_container, style='CardElevated.TFrame')
-        search_container.pack(fill=tk.X, pady=(0, 20))
+        # 快速操作数据
+        actions = [
+            ("📚", "最近浏览", "查看最近打开的相册", self.recent_callback, "#007AFF"),
+            ("⭐", "收藏夹", "管理您收藏的相册", self.favorites_callback, "#FF9500"),
+            ("🔍", "智能扫描", "自动发现图片文件夹", self.scan_callback, "#34C759"),
+            ("⚙️", "设置", "个性化您的体验", lambda: None, "#6D6D80")
+        ]
         
-        # 路径输入区域
-        path_frame = ttk.Frame(search_container)
-        path_frame.pack(fill=tk.X, pady=(0, 16))
+        # 创建操作卡片
+        for i, (icon, title, desc, command, color) in enumerate(actions):
+            row, col = divmod(i, 2)
+            self.create_action_card(grid_frame, icon, title, desc, command, color, row, col)
+    
+    def create_action_card(self, parent, icon, title, desc, command, color, row, col):
+        """创建操作卡片"""
+        # 卡片主框架
+        card_frame = tk.Frame(parent, bg=color, relief='flat', bd=0)
+        card_frame.grid(row=row, column=col, padx=10, pady=10, sticky='nsew')
         
-        path_label = ttk.Label(path_frame, text="选择相册文件夹", style='Body.TLabel')
-        path_label.pack(anchor=tk.W, pady=(0, 8))
+        # 内容框架
+        content_frame = tk.Frame(card_frame, bg=color)
+        content_frame.pack(fill='both', expand=True, padx=15, pady=15)
         
-        input_frame = ttk.Frame(path_frame)
-        input_frame.pack(fill=tk.X)
+        # 图标
+        icon_label = tk.Label(content_frame, text=icon, 
+                             font=get_safe_font('Arial', 24), bg=color, fg='white')
+        icon_label.pack(pady=(0, 8))
         
-        self.path_entry = ttk.Entry(input_frame, textvariable=self.path_var, 
-                                   style='Modern.TEntry', font=('SF Pro Display', 11))
-        self.path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
+        # 标题
+        title_label = tk.Label(content_frame, text=title,
+                              font=get_safe_font('Arial', 16, 'bold'), 
+                              bg=color, fg='white')
+        title_label.pack(pady=(0, 4))
         
-        browse_btn = ttk.Button(input_frame, text="📁 浏览", 
-                               command=self.on_browse, 
-                               style="Secondary.TButton")
-        browse_btn.pack(side=tk.LEFT, padx=(0, 12))
+        # 描述
+        desc_label = tk.Label(content_frame, text=desc,
+                             font=get_safe_font('Arial', 11), 
+                             bg=color, fg='#E5E5E7', 
+                             wraplength=120, justify='center')
+        desc_label.pack(pady=(0, 12))
         
-        scan_btn = ttk.Button(input_frame, text="🔍 开始扫描", 
-                             command=self.on_scan, 
-                             style="Primary.TButton")
-        scan_btn.pack(side=tk.LEFT)
+        # 按钮
+        action_btn = tk.Button(content_frame, text="使用",
+                              font=get_safe_font('Arial', 12, 'bold'), 
+                              bg='white', fg=color,
+                              relief='flat', bd=0, padx=20, pady=6,
+                              cursor='hand2', command=command)
+        action_btn.pack()
+        
+        # 悬停效果
+        def on_enter(e):
+            card_frame.configure(relief='raised', bd=2)
+        def on_leave(e):
+            card_frame.configure(relief='flat', bd=0)
+        
+        card_frame.bind('<Enter>', on_enter)
+        card_frame.bind('<Leave>', on_leave)
+        content_frame.bind('<Enter>', on_enter)
+        content_frame.bind('<Leave>', on_leave)
+    
+    def create_path_input(self):
+        """创建路径输入区域"""
+        path_frame = tk.Frame(self.main_container, bg='#FFFFFF', relief='flat', bd=0)
+        path_frame.pack(fill='x', pady=(0, 20))
+        
+        # 内容框架
+        content_frame = tk.Frame(path_frame, bg='#FFFFFF')
+        content_frame.pack(fill='x', padx=20, pady=20)
+        
+        # 标题
+        title = tk.Label(content_frame, text="选择相册文件夹", 
+                        font=get_safe_font('Arial', 18, 'bold'), 
+                        bg='#FFFFFF', fg='#1D1D1F')
+        title.pack(anchor='w', pady=(0, 15))
+        
+        # 路径输入框
+        input_frame = tk.Frame(content_frame, bg='#FFFFFF')
+        input_frame.pack(fill='x', pady=(0, 15))
+        
+        self.path_entry = tk.Entry(input_frame, textvariable=self.path_var,
+                                  font=get_safe_font('Arial', 14), 
+                                  bg='#F2F2F7', fg='#1D1D1F',
+                                  relief='flat', bd=0)
+        self.path_entry.pack(side='left', fill='x', expand=True, ipady=8, padx=(0, 10))
+        
+        # 按钮框架
+        button_frame = tk.Frame(content_frame, bg='#FFFFFF')
+        button_frame.pack(fill='x')
+        
+        # 浏览按钮
+        browse_btn = tk.Button(button_frame, text="📁 选择文件夹",
+                              font=get_safe_font('Arial', 14, 'bold'), 
+                              bg='#007AFF', fg='white',
+                              relief='flat', bd=0, padx=20, pady=10,
+                              cursor='hand2', command=self.browse_callback)
+        browse_btn.pack(side='left', padx=(0, 10))
+        
+        # 扫描按钮
+        scan_btn = tk.Button(button_frame, text="🔍 开始扫描",
+                            font=get_safe_font('Arial', 14, 'bold'), 
+                            bg='#34C759', fg='white',
+                            relief='flat', bd=0, padx=20, pady=10,
+                            cursor='hand2', command=self.scan_callback)
+        scan_btn.pack(side='left')
 
 class AlbumGrid:
-    """现代化相册网格显示组件"""
+    """瀑布流相册网格"""
     
-    def __init__(self, parent, on_album_click, on_favorite_toggle):
+    def __init__(self, parent, open_callback, favorite_callback):
         self.parent = parent
-        self.on_album_click = on_album_click
-        self.on_favorite_toggle = on_favorite_toggle
+        self.open_callback = open_callback
+        self.favorite_callback = favorite_callback
+        self.is_favorite = None  # 由外部设置
+        
         self.create_widgets()
     
     def create_widgets(self):
-        # 主容器
-        self.main_container = ttk.Frame(self.parent, padding="20 0 20 0")
-        self.main_container.pack(fill=tk.BOTH, expand=True)
+        """创建网格组件"""
+        # 这里创建一个简单的网格容器，避免复杂的字体配置
+        self.grid_frame = tk.Frame(self.parent, bg='#F2F2F7')
+        self.grid_frame.pack(fill='both', expand=True)
         
-        # 创建画布和滚动条
-        canvas_frame = ttk.Frame(self.main_container)
-        canvas_frame.pack(fill=tk.BOTH, expand=True)
-        
-        self.canvas = tk.Canvas(canvas_frame, highlightthickness=0, bg='#fef7ff')
-        self.scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = ttk.Frame(self.canvas)
-        
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
-        
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-        
-        # 绑定鼠标滚轮
-        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
-        
-        # 响应式网格列数
-        self.canvas.bind("<Configure>", self._on_canvas_configure)
-        self.cols = 3
-        
-    def _on_mousewheel(self, event):
-        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-    
-    def _on_canvas_configure(self, event):
-        # 根据窗口宽度调整列数
-        width = event.width
-        if width < 800:
-            self.cols = 1
-        elif width < 1200:
-            self.cols = 2
-        elif width < 1600:
-            self.cols = 3
-        else:
-            self.cols = 4
-        
-        self.canvas.itemconfig(self.canvas.find_withtag("all")[0], width=width)
-    
-    def clear_albums(self):
-        """清空相册显示"""
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-    
     def display_albums(self, albums):
-        """显示相册列表"""
+        """显示相册（简化版本）"""
+        # 清除现有内容
+        for widget in self.grid_frame.winfo_children():
+            widget.destroy()
+        
+        if not albums:
+            # 显示空状态
+            empty_label = tk.Label(self.grid_frame, text="暂无相册", 
+                                  font=get_safe_font('Arial', 16), 
+                                  bg='#F2F2F7', fg='#6D6D80')
+            empty_label.pack(expand=True)
+            return
+        
+        # 创建简单的列表显示
+        for i, album in enumerate(albums):
+            album_frame = tk.Frame(self.grid_frame, bg='white', relief='solid', bd=1)
+            album_frame.pack(fill='x', padx=10, pady=5)
+            
+            # 相册信息
+            info_frame = tk.Frame(album_frame, bg='white')
+            info_frame.pack(fill='x', padx=10, pady=10)
+            
+            # 名称
+            name_label = tk.Label(info_frame, text=album['name'], 
+                                 font=get_safe_font('Arial', 14, 'bold'), 
+                                 bg='white', fg='black')
+            name_label.pack(anchor='w')
+            
+            # 统计信息
+            stats_text = f"{album['image_count']} 张图片"
+            stats_label = tk.Label(info_frame, text=stats_text, 
+                                  font=get_safe_font('Arial', 12), 
+                                  bg='white', fg='gray')
+            stats_label.pack(anchor='w')
+            
+            # 按钮框架
+            btn_frame = tk.Frame(info_frame, bg='white')
+            btn_frame.pack(anchor='w', pady=(5, 0))
+            
+            # 打开按钮
+            open_btn = tk.Button(btn_frame, text="打开", 
+                               font=get_safe_font('Arial', 10), 
+                               command=lambda path=album['path']: self.open_callback(path))
+            open_btn.pack(side='left', padx=(0, 5))
+            
+            # 收藏按钮
+            is_fav = self.is_favorite(album['path']) if self.is_favorite else False
+            fav_text = "⭐" if is_fav else "☆"
+            fav_btn = tk.Button(btn_frame, text=fav_text, 
+                              font=get_safe_font('Arial', 10), 
+                              command=lambda path=album['path']: self.favorite_callback(path))
+            fav_btn.pack(side='left')
+
+class ImageViewer:
+    """图片查看器"""
+    
+    def __init__(self, parent, image_files, config_manager):
+        self.parent = parent
+        self.image_files = image_files
+        self.config_manager = config_manager
+        self.current_index = 0
+        
+        self.create_widgets()
+        self.load_current_image()
+    
+    def create_widgets(self):
+        """创建查看器组件"""
+        # 创建简单的图片查看器
+        self.main_frame = tk.Frame(self.parent, bg='black')
+        self.main_frame.pack(fill='both', expand=True)
+        
+        # 图片显示区域
+        self.image_label = tk.Label(self.main_frame, bg='black')
+        self.image_label.pack(fill='both', expand=True)
+        
+        # 控制栏
+        control_frame = tk.Frame(self.parent, bg='white', height=50)
+        control_frame.pack(side='bottom', fill='x')
+        control_frame.pack_propagate(False)
+        
+        # 导航按钮
+        prev_btn = tk.Button(control_frame, text="上一张", 
+                           font=get_safe_font('Arial', 12), 
+                           command=self.prev_image)
+        prev_btn.pack(side='left', padx=10, pady=10)
+        
+        next_btn = tk.Button(control_frame, text="下一张", 
+                           font=get_safe_font('Arial', 12), 
+                           command=self.next_image)
+        next_btn.pack(side='left', padx=5, pady=10)
+        
+        # 图片信息
+        self.info_var = tk.StringVar()
+        info_label = tk.Label(control_frame, textvariable=self.info_var, 
+                             font=get_safe_font('Arial', 12), 
+                             bg='white')
+        info_label.pack(side='right', padx=10, pady=10)
+        
+        # 键盘绑定
+        self.parent.bind('<Key>', self.on_key_press)
+        self.parent.focus_set()
+    
+    def load_current_image(self):
+        """加载当前图片"""
+        if not self.image_files:
+            return
+        
+        try:
+            image_path = self.image_files[self.current_index]
+            image = Image.open(image_path)
+            
+            # 调整图片大小适应窗口
+            window_width = self.main_frame.winfo_width() or 800
+            window_height = self.main_frame.winfo_height() or 600
+            
+            image.thumbnail((window_width, window_height), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(image)
+            
+            self.image_label.configure(image=photo)
+            self.image_label.image = photo  # 保持引用
+            
+            # 更新信息
+            filename = os.path.basename(image_path)
+            info_text = f"{self.current_index + 1}/{len(self.image_files)} - {filename}"
+            self.info_var.set(info_text)
+            
+        except Exception as e:
+            print(f"加载图片失败: {e}")
+    
+    def prev_image(self):
+        """上一张图片"""
+        if self.current_index > 0:
+            self.current_index -= 1
+            self.load_current_image()
+    
+    def next_image(self):
+        """下一张图片"""
+        if self.current_index < len(self.image_files) - 1:
+            self.current_index += 1
+            self.load_current_image()
+    
+    def on_key_press(self, event):
+        """键盘事件处理"""
+        if event.keysym == 'Left':
+            self.prev_image()
+        elif event.keysym == 'Right':
+            self.next_image()
+        elif event.keysym == 'Escape':
+            self.parent.destroy()
+    def display_albums(self, albums):
+        """显示相册瀑布流"""
         self.clear_albums()
         
         if not albums:
             self._show_empty_state()
             return
         
-        # 创建网格布局
+        # 创建列框架
+        self._create_columns()
+        
+        # 瀑布流布局
         for i, album in enumerate(albums):
-            row = i // self.cols
             col = i % self.cols
-            self.create_album_card(album, row, col)
+            self.create_album_card(album, self.column_frames[col])
+    
+    def _create_columns(self):
+        """创建瀑布流列"""
+        container = tk.Frame(self.scrollable_frame, bg='#f2f2f7')
+        container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        self.column_frames = []
+        for i in range(self.cols):
+            col_frame = tk.Frame(container, bg='#f2f2f7')
+            col_frame.pack(side=tk.LEFT, fill=tk.Y, padx=8)
+            self.column_frames.append(col_frame)
     
     def _show_empty_state(self):
         """显示空状态"""
-        empty_frame = ttk.Frame(self.scrollable_frame, padding="40")
-        empty_frame.pack(fill=tk.BOTH, expand=True)
+        empty_frame = tk.Frame(self.scrollable_frame, bg='#f2f2f7')
+        empty_frame.pack(fill=tk.BOTH, expand=True, pady=100)
         
-        empty_icon = ttk.Label(empty_frame, text="📷", font=('SF Pro Display', 48))
-        empty_icon.pack(pady=(0, 16))
+        # 空状态图标
+        empty_icon = tk.Label(empty_frame, text="📷", font=('SF Pro Display', 64), 
+                            bg='#f2f2f7', fg='#c7c7cc')
+        empty_icon.pack(pady=(0, 20))
         
-        empty_title = ttk.Label(empty_frame, text="暂无相册", style='Title.TLabel')
+        # 空状态标题
+        empty_title = tk.Label(empty_frame, text="暂无相册",
+                             font=('SF Pro Display', 24, 'bold'),
+                             bg='#f2f2f7', fg='#8e8e93')
         empty_title.pack(pady=(0, 8))
         
-        empty_desc = ttk.Label(empty_frame, text="选择文件夹并点击扫描来发现您的相册", 
-                              style='Subtitle.TLabel')
+        # 空状态描述
+        empty_desc = tk.Label(empty_frame, text="选择文件夹并点击扫描来发现您的相册",
+                            font=('SF Pro Display', 17),
+                            bg='#f2f2f7', fg='#aeaeb2')
         empty_desc.pack()
     
-    def create_album_card(self, album, row, col):
-        """创建现代化相册卡片"""
+    def create_album_card(self, album, parent_column):
+        """创建iPhone风格相册卡片"""
+        # 计算卡片高度（模拟瀑布流效果）
+        base_height = 280
+        random_height = hash(album['name']) % 100
+        card_height = base_height + random_height
+        
         # 卡片容器
-        card_frame = ttk.Frame(self.scrollable_frame, style='Card.TFrame')
-        card_frame.grid(row=row, column=col, padx=12, pady=12, sticky="nsew")
+        card_frame = tk.Frame(parent_column, bg='#ffffff', relief='flat', bd=0,
+                            height=card_height)
+        card_frame.pack(fill=tk.X, pady=12)
+        card_frame.pack_propagate(False)
         
-        # 配置网格权重
-        self.scrollable_frame.grid_columnconfigure(col, weight=1)
-        
-        # 卡片内容容器
-        content_frame = ttk.Frame(card_frame, style='Card.TFrame')
+        # 卡片内容
+        content_frame = tk.Frame(card_frame, bg='#ffffff')
         content_frame.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
         
-        # 封面图片容器
-        cover_container = ttk.Frame(content_frame, style='Card.TFrame')
-        cover_container.pack(fill=tk.X, pady=(0, 16))
-        
-        # 创建封面
+        # 封面图片
         if album['cover_image']:
-            photo = ImageProcessor.create_thumbnail(album['cover_image'], size=(280, 200))
+            photo = ImageProcessor.create_thumbnail(album['cover_image'], size=(240, 180))
             if photo:
-                cover_label = ttk.Label(cover_container, image=photo, 
-                                      style='Card.TLabel', cursor='hand2')
+                cover_label = tk.Label(content_frame, image=photo, bg='#ffffff',
+                                     cursor='hand2')
                 cover_label.image = photo
-                cover_label.pack()
+                cover_label.pack(pady=(0, 12))
                 cover_label.bind("<Button-1>", 
                                lambda e, path=album['path']: self.on_album_click(path))
-                
-                # 添加悬停效果
-                cover_label.bind('<Enter>', lambda e: self._on_card_enter(card_frame))
-                cover_label.bind('<Leave>', lambda e: self._on_card_leave(card_frame))
         
         # 相册信息
-        info_frame = ttk.Frame(content_frame, style='Card.TFrame')
+        info_frame = tk.Frame(content_frame, bg='#ffffff')
         info_frame.pack(fill=tk.X)
         
         # 相册名称
-        name_label = ttk.Label(info_frame, text=album['name'], 
-                              style='Body.TLabel', 
-                              font=('SF Pro Display', 14, 'bold'))
+        name_label = tk.Label(info_frame, text=album['name'],
+                            font=('SF Pro Display', 17, 'medium'),
+                            bg='#ffffff', fg='#000000')
         name_label.pack(anchor=tk.W, pady=(0, 4))
         
-        # 相册统计
-        stats_frame = ttk.Frame(info_frame, style='Card.TFrame')
-        stats_frame.pack(fill=tk.X, pady=(0, 12))
-        
-        count_text = f"📸 {album.get('image_count', len(album['image_files']))} 张"
-        count_label = ttk.Label(stats_frame, text=count_text, style='Caption.TLabel')
-        count_label.pack(side=tk.LEFT)
-        
+        # 统计信息
+        stats_text = f"{album.get('image_count', len(album['image_files']))} 张照片"
         if 'folder_size' in album:
-            size_label = ttk.Label(stats_frame, text=f"💾 {album['folder_size']}", 
-                                 style='Caption.TLabel')
-            size_label.pack(side=tk.RIGHT)
+            stats_text += f" • {album['folder_size']}"
+        
+        stats_label = tk.Label(info_frame, text=stats_text,
+                             font=('SF Pro Display', 13),
+                             bg='#ffffff', fg='#8e8e93')
+        stats_label.pack(anchor=tk.W, pady=(0, 12))
         
         # 操作按钮
-        action_frame = ttk.Frame(info_frame, style='Card.TFrame')
-        action_frame.pack(fill=tk.X)
+        button_frame = tk.Frame(info_frame, bg='#ffffff')
+        button_frame.pack(fill=tk.X)
         
         # 查看按钮
-        view_btn = ttk.Button(action_frame, text="打开相册", 
-                             command=lambda: self.on_album_click(album['path']),
-                             style="Primary.TButton")
+        view_btn = tk.Button(button_frame, text="打开",
+                           command=lambda: self.on_album_click(album['path']),
+                           font=('SF Pro Display', 15, 'medium'),
+                           bg='#007aff', fg='white',
+                           relief='flat', bd=0,
+                           padx=20, pady=8,
+                           cursor='hand2')
         view_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
         
         # 收藏按钮
         fav_icon = "⭐" if self.is_favorite(album['path']) else "☆"
-        fav_btn = ttk.Button(action_frame, text=fav_icon, 
-                           command=lambda: self.on_favorite_toggle(album['path']),
-                           style="Icon.TButton", width=3)
+        fav_btn = tk.Button(button_frame, text=fav_icon,
+                          command=lambda: self.on_favorite_toggle(album['path']),
+                          font=('SF Pro Display', 18),
+                          bg='#f2f2f7', fg='#ff9500',
+                          relief='flat', bd=0,
+                          width=3, pady=8,
+                          cursor='hand2')
         fav_btn.pack(side=tk.RIGHT)
+        
+        # 添加悬停效果
+        def on_enter(event):
+            card_frame.configure(bg='#f8f8f8')
+            content_frame.configure(bg='#f8f8f8')
+        
+        def on_leave(event):
+            card_frame.configure(bg='#ffffff')
+            content_frame.configure(bg='#ffffff')
+        
+        card_frame.bind('<Enter>', on_enter)
+        card_frame.bind('<Leave>', on_leave)
+        content_frame.bind('<Enter>', on_enter)
+        content_frame.bind('<Leave>', on_leave)
     
     def is_favorite(self, album_path):
         """检查是否为收藏"""
         return False  # 默认实现
-    
-    def _on_card_enter(self, card_frame):
-        """卡片悬停效果"""
-        card_frame.configure(style='CardElevated.TFrame')
-        
-    def _on_card_leave(self, card_frame):
-        """卡片离开效果"""
-        card_frame.configure(style='Card.TFrame')
 
 class ImageViewer:
-    """现代化图片查看器组件"""
+    """iPhone风格图片查看器"""
     
     def __init__(self, parent, image_files, config_manager=None):
         self.parent = parent
@@ -443,9 +594,9 @@ class ImageViewer:
         self.load_image()
     
     def setup_window(self):
-        """设置窗口样式"""
-        self.parent.configure(bg='#1c1c1e')
-        
+        """设置iPhone风格窗口"""
+        self.parent.configure(bg='#000000')
+    
     def create_widgets(self):
         # 主容器
         main_frame = ttk.Frame(self.parent)
