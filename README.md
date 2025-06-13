@@ -26,7 +26,14 @@ python main.py
 ```
 
 ## 配置
-配置文件位于 `.cnb.yml`，可根据需要修改相关参数。
+应用程序会自动保存您上次选择的相册路径，以便下次启动时快速访问。配置信息存储在以下位置：
+- Windows: `C:\Users\<用户名>\.album_scanner_config.json`
+- macOS/Linux: `~/.album_scanner_config.json`
+
+该JSON文件包含以下字段：
+- `last_path`: 上次选择的相册文件夹路径
+
+无需手动编辑此文件，应用程序会在您浏览并选择新文件夹时自动更新配置。当您下次启动应用时，将自动加载上次使用的路径。
 
 ## 许可证
 [MIT](LICENSE)
