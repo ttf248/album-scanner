@@ -84,6 +84,8 @@ class PhotoAlbumApp:
             self.album_grid = AlbumGrid(self.root, self.open_album, self.toggle_favorite)
             # 设置收藏检查函数
             self.album_grid.is_favorite = self.config_manager.is_favorite
+            # 建立与导航栏的关联
+            self.album_grid.nav_bar = self.nav_bar
             
             # 状态栏
             self.status_bar = StatusBar(self.root)
