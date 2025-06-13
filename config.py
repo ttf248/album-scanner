@@ -1,80 +1,108 @@
-import os
 import json
+import os
+from pathlib import Path
 
 class ConfigManager:
-    """配置管理器，负责处理应用程序配置的读取和保存"""
+    """配置管理器，支持Unicode路径"""
     
     def __init__(self):
-        self.config_file = os.path.join(os.path.expanduser('~'), '.album_scanner_config.json')
+        # 使用pathlib处理配置目录
+        self.config_dir = Path.home() / '.album_scanner'
+        self.config_file = self.config_dir / 'settings.json'
+        
+        # 确保配置目录存在
+        self.config_dir.mkdir(exist_ok=True)
+        
+        # 默认配置
+        self.default_config = {
+            'last_path': '',
+            'window_size': '1200x800',
+            'recent_albums': [],
+            'favorites': [],
+            'max_recent': 10
+        }
+        
+        # 加载配置
         self.config = self.load_config()
     
     def load_config(self):
         """加载配置文件"""
         try:
-            if os.path.exists(self.config_file):
+            if self.config_file.exists():
                 with open(self.config_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    config = json.load(f)
+                    # 合并默认配置
+                    for key, value in self.default_config.items():
+                        if key not in config:
+                            config[key] = value
+                    return config
         except Exception as e:
-            print(f"加载配置失败: {e}")
-        return self.get_default_config()
-    
-    def get_default_config(self):
-        """获取默认配置"""
-        return {
-            'last_path': '',
-            'zoom_mode': 'fit',
-            'theme': 'arc',
-            'language': 'zh-CN',
-            'slideshow_interval': 3,
-            'recent_albums': [],
-            'favorites': [],
-            'window_size': '1000x700',
-            'show_exif': True,
-            'auto_rotate': True
-        }
+            print(f"加载配置文件失败: {e}")
+        
+        return self.default_config.copy()
     
     def save_config(self):
-        """保存配置到文件"""
+        """保存配置文件"""
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, ensure_ascii=False, indent=2)
+                json.dump(self.config, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            print(f"保存配置失败: {e}")
+            print(f"保存配置文件失败: {e}")
     
     def get_last_path(self):
         """获取上次使用的路径"""
-        return self.config.get('last_path', '')
+        last_path = self.config.get('last_path', '')
+        # 验证路径是否存在
+        if last_path and Path(last_path).exists():
+            return last_path
+        return ''
     
     def set_last_path(self, path):
-        """设置并保存路径"""
-        self.config['last_path'] = path
-        self.save_config()
-    
-    def get_zoom_mode(self):
-        """获取缩放模式"""
-        return self.config.get('zoom_mode', 'fit')
-    
-    def set_zoom_mode(self, mode):
-        """设置缩放模式"""
-        self.config['zoom_mode'] = mode
+        """设置上次使用的路径"""
+        self.config['last_path'] = str(path)
         self.save_config()
     
     def add_recent_album(self, album_path):
         """添加到最近浏览"""
-        recent = self.config.get('recent_albums', [])
-        if album_path in recent:
-            recent.remove(album_path)
-        recent.insert(0, album_path)
-        self.config['recent_albums'] = recent[:10]  # 保留最近10个
+        album_path = str(album_path)
+        recent_albums = self.config.get('recent_albums', [])
+        
+        # 如果已存在，先移除
+        if album_path in recent_albums:
+            recent_albums.remove(album_path)
+        
+        # 添加到开头
+        recent_albums.insert(0, album_path)
+        
+        # 限制数量
+        max_recent = self.config.get('max_recent', 10)
+        if len(recent_albums) > max_recent:
+            recent_albums = recent_albums[:max_recent]
+        
+        self.config['recent_albums'] = recent_albums
         self.save_config()
     
     def get_recent_albums(self):
         """获取最近浏览的相册"""
-        return self.config.get('recent_albums', [])
+        recent_albums = self.config.get('recent_albums', [])
+        # 过滤不存在的路径
+        valid_albums = []
+        for album_path in recent_albums:
+            if Path(album_path).exists():
+                valid_albums.append(album_path)
+        
+        # 如果有变化，更新配置
+        if len(valid_albums) != len(recent_albums):
+            self.config['recent_albums'] = valid_albums
+            self.save_config()
+        
+        return valid_albums
     
     def add_favorite(self, album_path):
         """添加到收藏"""
+        album_path = str(album_path)
         favorites = self.config.get('favorites', [])
+        
         if album_path not in favorites:
             favorites.append(album_path)
             self.config['favorites'] = favorites
@@ -82,16 +110,31 @@ class ConfigManager:
     
     def remove_favorite(self, album_path):
         """从收藏中移除"""
+        album_path = str(album_path)
         favorites = self.config.get('favorites', [])
+        
         if album_path in favorites:
             favorites.remove(album_path)
             self.config['favorites'] = favorites
             self.save_config()
     
+    def is_favorite(self, album_path):
+        """检查是否已收藏"""
+        album_path = str(album_path)
+        return album_path in self.config.get('favorites', [])
+    
     def get_favorites(self):
         """获取收藏的相册"""
-        return self.config.get('favorites', [])
-    
-    def is_favorite(self, album_path):
-        """检查是否为收藏"""
-        return album_path in self.config.get('favorites', [])
+        favorites = self.config.get('favorites', [])
+        # 过滤不存在的路径
+        valid_favorites = []
+        for album_path in favorites:
+            if Path(album_path).exists():
+                valid_favorites.append(album_path)
+        
+        # 如果有变化，更新配置
+        if len(valid_favorites) != len(favorites):
+            self.config['favorites'] = valid_favorites
+            self.save_config()
+        
+        return valid_favorites

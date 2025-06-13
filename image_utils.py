@@ -1,6 +1,8 @@
 import os
 import glob
+import sys
 from PIL import Image, ImageTk, ExifTags
+from pathlib import Path
 import threading
 import time
 
@@ -12,26 +14,44 @@ class ImageProcessor:
     @classmethod
     def scan_albums(cls, root_path):
         """扫描指定路径下的所有包含图片的文件夹"""
-        if not os.path.exists(root_path):
-            return []
-        
         albums = []
-        for root, dirs, files in os.walk(root_path):
-            # 检查当前目录是否包含图片文件
-            has_images = any(os.path.splitext(file)[1].lower() in cls.IMAGE_EXTENSIONS 
-                           for file in files)
-            if has_images:
-                image_files = cls.get_image_files(root)
-                if image_files:
-                    albums.append({
-                        'path': root,
-                        'name': os.path.basename(root),
-                        'image_files': image_files,
-                        'cover_image': image_files[0] if image_files else None,
-                        'image_count': len(image_files),
-                        'folder_size': cls.get_folder_size(image_files)
-                    })
         
+        try:
+            # 使用pathlib处理路径，更好地支持Unicode
+            root_path = Path(root_path)
+            
+            if not root_path.exists():
+                print(f"路径不存在: {root_path}")
+                return albums
+            
+            # 遍历所有子文件夹
+            for item in root_path.iterdir():
+                if item.is_dir():
+                    try:
+                        # 获取文件夹中的图片文件
+                        image_files = cls.get_image_files(str(item))
+                        
+                        if image_files:
+                            # 计算文件夹大小
+                            folder_size = cls.get_folder_size(image_files)
+                            
+                            album_info = {
+                                'path': str(item),
+                                'name': item.name,
+                                'image_files': image_files,
+                                'cover_image': image_files[0],
+                                'image_count': len(image_files),
+                                'folder_size': folder_size
+                            }
+                            albums.append(album_info)
+                            
+                    except Exception as e:
+                        print(f"处理文件夹时出错 {item}: {e}")
+                        continue
+                        
+        except Exception as e:
+            print(f"扫描根目录时出错 {root_path}: {e}")
+            
         return albums
     
     @classmethod
@@ -59,29 +79,57 @@ class ImageProcessor:
     
     @classmethod
     def get_image_files(cls, folder_path):
-        """获取文件夹中的所有图片文件"""
+        """获取文件夹中的所有图片文件，支持Unicode路径"""
         image_files = []
-        for ext in cls.IMAGE_EXTENSIONS:
-            pattern = os.path.join(folder_path, f'*{ext}')
-            image_files.extend(glob.glob(pattern, recursive=False))
-            # 同时检查大写扩展名
-            pattern_upper = os.path.join(folder_path, f'*{ext.upper()}')
-            image_files.extend(glob.glob(pattern_upper, recursive=False))
         
-        # 去重并排序
-        image_files = list(set(image_files))
-        image_files.sort()
+        try:
+            folder_path = Path(folder_path)
+            
+            if not folder_path.exists():
+                return image_files
+            
+            # 遍历文件夹中的所有文件
+            for file_path in folder_path.iterdir():
+                if file_path.is_file():
+                    # 检查文件扩展名
+                    if file_path.suffix.lower() in cls.IMAGE_EXTENSIONS:
+                        try:
+                            # 验证文件是否可读
+                            if file_path.exists() and file_path.stat().st_size > 0:
+                                image_files.append(str(file_path))
+                        except Exception as e:
+                            print(f"检查文件时出错 {file_path}: {e}")
+                            continue
+                            
+        except Exception as e:
+            print(f"读取文件夹时出错 {folder_path}: {e}")
+            
+        # 按文件名排序
+        try:
+            image_files.sort(key=lambda x: Path(x).name.lower())
+        except Exception as e:
+            print(f"排序文件时出错: {e}")
+            
         return image_files
     
     @classmethod
     def create_thumbnail(cls, image_path, size=(200, 200)):
         """创建图片缩略图"""
         try:
-            img = Image.open(image_path)
-            img.thumbnail(size, Image.Resampling.LANCZOS)
-            return ImageTk.PhotoImage(img)
+            # 使用pathlib处理路径
+            image_path = Path(image_path)
+            
+            if not image_path.exists():
+                return None
+                
+            # 打开图片
+            with Image.open(str(image_path)) as img:
+                # 创建缩略图
+                img.thumbnail(size, Image.Resampling.LANCZOS)
+                return img.copy()
+                
         except Exception as e:
-            print(f"无法创建缩略图 {image_path}: {e}")
+            print(f"创建缩略图时出错 {image_path}: {e}")
             return None
     
     @classmethod

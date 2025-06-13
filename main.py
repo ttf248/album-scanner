@@ -1,10 +1,21 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, Toplevel
 import os
+import sys
+from pathlib import Path
 from ttkthemes import ThemedTk
 from config import ConfigManager
 from image_utils import ImageProcessor
 from ui_components import StyleManager, NavigationBar, AlbumGrid, ImageViewer, StatusBar
+
+# 设置默认编码
+if sys.platform.startswith('win'):
+    # Windows环境下设置控制台编码
+    try:
+        import locale
+        locale.setlocale(locale.LC_ALL, '')
+    except:
+        pass
 
 class PhotoAlbumApp:
     """现代化相册扫描器主应用程序"""
@@ -148,13 +159,22 @@ class PhotoAlbumApp:
         """浏览并选择文件夹"""
         folder_selected = filedialog.askdirectory(
             title="选择相册文件夹",
-            initialdir=self.folder_path if self.folder_path else os.path.expanduser('~')
+            initialdir=self.folder_path if self.folder_path else str(Path.home())
         )
         if folder_selected:
+            # 确保路径正确处理Unicode字符
+            folder_selected = str(Path(folder_selected))
             self.folder_path = folder_selected
             self.path_var.set(folder_selected)
             self.config_manager.set_last_path(folder_selected)
-            self.status_bar.set_status(f"已选择: {os.path.basename(folder_selected)}")
+            
+            # 显示文件夹名称，处理长路径
+            folder_name = Path(folder_selected).name
+            if len(folder_name) > 30:
+                display_name = folder_name[:27] + "..."
+            else:
+                display_name = folder_name
+            self.status_bar.set_status(f"已选择: {display_name}")
             
     def scan_albums(self):
         """扫描相册"""
@@ -163,7 +183,9 @@ class PhotoAlbumApp:
             messagebox.showwarning("提示", "请先选择相册文件夹")
             return
             
-        if not os.path.exists(folder_path):
+        # 使用pathlib验证路径
+        path_obj = Path(folder_path)
+        if not path_obj.exists():
             messagebox.showerror("错误", "所选文件夹不存在")
             return
             
@@ -174,7 +196,7 @@ class PhotoAlbumApp:
             self.root.update()
             
             # 执行扫描
-            self.albums = ImageProcessor.scan_albums(folder_path)
+            self.albums = ImageProcessor.scan_albums(str(path_obj))
             
             if not self.albums:
                 messagebox.showinfo("提示", "在所选文件夹中未找到包含图片的子文件夹")
@@ -191,12 +213,14 @@ class PhotoAlbumApp:
             self.status_bar.set_info(f"共 {total_images} 张图片")
             
         except Exception as e:
-            messagebox.showerror("错误", f"扫描相册时发生错误：{str(e)}")
+            error_msg = f"扫描相册时发生错误：{str(e)}"
+            print(error_msg)
+            messagebox.showerror("错误", error_msg)
             self.status_bar.set_status("扫描失败")
             self.status_bar.set_info("")
         finally:
             self.root.config(cursor="")
-    
+
     def show_recent_albums(self):
         """显示最近浏览的相册"""
         recent_albums = self.config_manager.get_recent_albums()
@@ -327,7 +351,8 @@ def main():
         root.mainloop()
         
     except Exception as e:
-        print(f"启动应用程序时发生错误：{e}")
+        error_msg = f"启动应用程序时发生错误：{e}"
+        print(error_msg)
         import traceback
         traceback.print_exc()
         
