@@ -114,11 +114,11 @@ class PhotoAlbumApp:
         path_entry = tk.Entry(top_frame, textvariable=self.path_var, width=50)
         path_entry.pack(side='left', padx=5)
         
-        # 按钮
-        tk.Button(top_frame, text="浏览", command=self.browse_folder).pack(side='left', padx=2)
-        tk.Button(top_frame, text="扫描", command=self.scan_albums).pack(side='left', padx=2)
-        tk.Button(top_frame, text="最近", command=self.show_recent_albums).pack(side='left', padx=2)
-        tk.Button(top_frame, text="收藏", command=self.show_favorites).pack(side='left', padx=2)
+        # 按钮 - 添加快捷键提示
+        tk.Button(top_frame, text="浏览 (Ctrl+O)", command=self.browse_folder).pack(side='left', padx=2)
+        tk.Button(top_frame, text="扫描 (Ctrl+S)", command=self.scan_albums).pack(side='left', padx=2)
+        tk.Button(top_frame, text="最近 (Ctrl+R)", command=self.show_recent_albums).pack(side='left', padx=2)
+        tk.Button(top_frame, text="收藏 (Ctrl+F)", command=self.show_favorites).pack(side='left', padx=2)
         
         # 主内容区域
         main_frame = tk.Frame(self.root, bg='white')
@@ -241,7 +241,7 @@ class PhotoAlbumApp:
         """扫描相册"""
         folder_path = self.path_var.get().strip()
         if not folder_path:
-            messagebox.showwarning("提示", "请先选择相册文件夹")
+            messagebox.showwarning("提示", "请先选择相册文件夹\n\n💡 快捷键提示：\n• Ctrl+O: 选择文件夹\n• F5: 快速扫描")
             return
             
         # 使用pathlib验证路径
@@ -253,7 +253,7 @@ class PhotoAlbumApp:
         try:
             # 显示加载状态
             self.root.config(cursor="wait")
-            self.status_bar.set_status("正在扫描相册，请稍候...")
+            self.status_bar.set_status("正在扫描相册，请稍候... (按 ESC 可取消)")
             self.root.update()
             
             # 执行扫描
@@ -277,9 +277,15 @@ class PhotoAlbumApp:
                 self.status_bar.set_status(f"扫描完成，找到 {len(self.albums)} 个相册")
             self.status_bar.set_info(f"共 {total_images} 张图片")
             
-            # 如果相册很多，提示用户可以滚动
+            # 如果相册很多，提示用户可以滚动和使用快捷键
             if len(self.albums) > 15:
-                messagebox.showinfo("提示", f"找到 {len(self.albums)} 个相册！\n使用鼠标滚轮或拖拽滚动条浏览所有相册。")
+                messagebox.showinfo("扫描完成", 
+                    f"找到 {len(self.albums)} 个相册！\n\n"
+                    "📋 浏览提示：\n"
+                    "• 使用鼠标滚轮浏览所有相册\n"
+                    "• Ctrl+R 查看最近浏览的相册\n"
+                    "• Ctrl+F 管理收藏的相册\n"
+                    "• F5 重新扫描当前文件夹")
             
         except Exception as e:
             error_msg = f"扫描相册时发生错误：{str(e)}"
@@ -294,7 +300,12 @@ class PhotoAlbumApp:
         """显示最近浏览的相册"""
         recent_albums = self.config_manager.get_recent_albums()
         if not recent_albums:
-            messagebox.showinfo("提示", "暂无最近浏览的相册")
+            messagebox.showinfo("最近浏览", 
+                "暂无最近浏览的相册\n\n"
+                "💡 提示：\n"
+                "• 打开任何相册后会自动记录\n"
+                "• 使用 Ctrl+R 快速访问最近浏览\n"
+                "• 使用 Ctrl+F 管理收藏的相册")
             return
         
         # 过滤存在的路径
@@ -334,7 +345,12 @@ class PhotoAlbumApp:
         """显示收藏的相册"""
         favorites = self.config_manager.get_favorites()
         if not favorites:
-            messagebox.showinfo("提示", "暂无收藏的相册")
+            messagebox.showinfo("收藏夹", 
+                "暂无收藏的相册\n\n"
+                "💡 使用方法：\n"
+                "• 在相册列表中点击 ⭐ 按钮收藏\n"
+                "• 使用 Ctrl+F 快速访问收藏夹\n"
+                "• 再次点击 ⭐ 按钮可取消收藏")
             return
         
         # 过滤存在的路径
@@ -480,10 +496,16 @@ class PhotoAlbumApp:
                     current_index[0] += 1
                     load_image()
             
-            # 按钮
-            tk.Button(control_frame, text="上一张", command=prev_image).pack(side='left', padx=5, pady=5)
-            tk.Button(control_frame, text="下一张", command=next_image).pack(side='left', padx=5, pady=5)
-            tk.Button(control_frame, text="关闭", command=window.destroy).pack(side='right', padx=5, pady=5)
+            # 按钮 - 添加快捷键提示
+            tk.Button(control_frame, text="上一张 (←)", command=prev_image).pack(side='left', padx=5, pady=5)
+            tk.Button(control_frame, text="下一张 (→)", command=next_image).pack(side='left', padx=5, pady=5)
+            tk.Button(control_frame, text="关闭 (ESC)", command=window.destroy).pack(side='right', padx=5, pady=5)
+            
+            # 添加快捷键说明标签
+            help_label = tk.Label(control_frame, 
+                text="快捷键: ← → 切换图片 | ESC 关闭", 
+                bg='gray', fg='white', font=get_safe_font('Arial', 9))
+            help_label.pack(pady=2)
             
             # 键盘绑定
             def on_key(event):

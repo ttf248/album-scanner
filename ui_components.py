@@ -124,32 +124,32 @@ class NavigationBar:
         left_frame = tk.Frame(toolbar_content, bg='#F2F2F7')
         left_frame.pack(side='left')
         
-        # 浏览按钮
-        browse_btn = tk.Button(left_frame, text="📁 选择",
+        # 浏览按钮 - 添加快捷键提示
+        browse_btn = tk.Button(left_frame, text="📁 选择 (Ctrl+O)",
                               font=get_safe_font('Arial', 12, 'bold'), 
                               bg='#007AFF', fg='white',
                               relief='flat', bd=0, padx=15, pady=8,
                               cursor='hand2', command=self.browse_callback)
         browse_btn.pack(side='left', padx=(0, 8))
         
-        # 扫描按钮
-        scan_btn = tk.Button(left_frame, text="🔍 扫描",
+        # 扫描按钮 - 添加快捷键提示
+        scan_btn = tk.Button(left_frame, text="🔍 扫描 (Ctrl+S/F5)",
                             font=get_safe_font('Arial', 12, 'bold'), 
                             bg='#34C759', fg='white',
                             relief='flat', bd=0, padx=15, pady=8,
                             cursor='hand2', command=self.scan_callback)
         scan_btn.pack(side='left', padx=(0, 8))
         
-        # 最近浏览按钮
-        recent_btn = tk.Button(left_frame, text="📚 最近",
+        # 最近浏览按钮 - 添加快捷键提示
+        recent_btn = tk.Button(left_frame, text="📚 最近 (Ctrl+R)",
                               font=get_safe_font('Arial', 12, 'bold'), 
                               bg='#FF9500', fg='white',
                               relief='flat', bd=0, padx=15, pady=8,
                               cursor='hand2', command=self.recent_callback)
         recent_btn.pack(side='left', padx=(0, 8))
         
-        # 收藏按钮
-        fav_btn = tk.Button(left_frame, text="⭐ 收藏",
+        # 收藏按钮 - 添加快捷键提示
+        fav_btn = tk.Button(left_frame, text="⭐ 收藏 (Ctrl+F)",
                            font=get_safe_font('Arial', 12, 'bold'), 
                            bg='#FF9500', fg='white',
                            relief='flat', bd=0, padx=15, pady=8,
@@ -217,10 +217,12 @@ class NavigationBar:
                             bg='#FFFFFF', fg='#1D1D1F')
         tip_title.pack(anchor='w', pady=(0, 10))
         
+        # 更新快速操作提示，添加快捷键信息
         tips = [
-            "1. 点击「📁 选择」按钮选择包含图片的文件夹",
-            "2. 点击「🔍 扫描」按钮自动发现相册",
-            "3. 在瀑布流中浏览和管理您的相册"
+            "1. 点击「📁 选择」按钮或按 Ctrl+O 选择包含图片的文件夹",
+            "2. 点击「🔍 扫描」按钮或按 Ctrl+S/F5 自动发现相册",
+            "3. 使用 Ctrl+R 查看最近浏览，Ctrl+F 管理收藏夹",
+            "4. 在瀑布流中浏览和管理您的相册"
         ]
         
         for tip in tips:
@@ -594,8 +596,8 @@ class ImageViewer:
                              bg='#2C2C2E', fg='white')
         info_label.pack(anchor='w')
         
-        # 快捷键提示
-        shortcut_label = tk.Label(left_frame, text="⌨️ 快捷键: ←→切换 空格暂停 F11全屏 ESC退出",
+        # 更新快捷键提示，更详细的信息
+        shortcut_label = tk.Label(left_frame, text="⌨️ 快捷键: ←→切换 +/-缩放 R旋转 F11全屏 I信息 H帮助 ESC退出",
                                  font=get_safe_font('Arial', 9),
                                  bg='#2C2C2E', fg='#8E8E93')
         shortcut_label.pack(anchor='w', pady=(2, 0))
@@ -604,37 +606,37 @@ class ImageViewer:
         btn_frame = tk.Frame(toolbar_content, bg='#2C2C2E')
         btn_frame.pack(side='right')
         
-        # 旋转按钮
-        rotate_left_btn = tk.Button(btn_frame, text="↺", 
-                                   font=get_safe_font('Arial', 12),
+        # 旋转按钮 - 添加快捷键提示
+        rotate_left_btn = tk.Button(btn_frame, text="↺ (Shift+R)", 
+                                   font=get_safe_font('Arial', 10),
                                    bg='#48484A', fg='white', relief='flat',
-                                   width=3, command=self.rotate_left)
+                                   padx=8, command=self.rotate_left)
         rotate_left_btn.pack(side='left', padx=2)
         
-        rotate_right_btn = tk.Button(btn_frame, text="↻", 
-                                    font=get_safe_font('Arial', 12),
+        rotate_right_btn = tk.Button(btn_frame, text="↻ (R)", 
+                                    font=get_safe_font('Arial', 10),
                                     bg='#48484A', fg='white', relief='flat',
-                                    width=3, command=self.rotate_right)
+                                    padx=8, command=self.rotate_right)
         rotate_right_btn.pack(side='left', padx=2)
         
         # 分隔线
         separator = tk.Label(btn_frame, text="|", bg='#2C2C2E', fg='#48484A')
         separator.pack(side='left', padx=5)
         
-        # 缩放按钮
-        zoom_out_btn = tk.Button(btn_frame, text="缩小", 
+        # 缩放按钮 - 添加快捷键提示
+        zoom_out_btn = tk.Button(btn_frame, text="缩小 (-)", 
                                font=get_safe_font('Arial', 10),
                                bg='#48484A', fg='white', relief='flat',
                                padx=8, command=self.zoom_out)
         zoom_out_btn.pack(side='left', padx=2)
         
-        zoom_in_btn = tk.Button(btn_frame, text="放大", 
+        zoom_in_btn = tk.Button(btn_frame, text="放大 (+)", 
                               font=get_safe_font('Arial', 10),
                               bg='#48484A', fg='white', relief='flat',
                               padx=8, command=self.zoom_in)
         zoom_in_btn.pack(side='left', padx=2)
         
-        reset_btn = tk.Button(btn_frame, text="重置", 
+        reset_btn = tk.Button(btn_frame, text="重置 (0)", 
                             font=get_safe_font('Arial', 10),
                             bg='#48484A', fg='white', relief='flat',
                             padx=8, command=self.reset_zoom)
@@ -657,17 +659,17 @@ class ImageViewer:
         control_content = tk.Frame(self.control_frame, bg='#2C2C2E')
         control_content.pack(fill='both', expand=True, padx=20, pady=15)
         
-        # 左侧导航按钮
+        # 左侧导航按钮 - 添加快捷键提示
         nav_frame = tk.Frame(control_content, bg='#2C2C2E')
         nav_frame.pack(side='left')
         
-        prev_btn = tk.Button(nav_frame, text="⬅ 上一张", 
+        prev_btn = tk.Button(nav_frame, text="⬅ 上一张 (←)", 
                            font=get_safe_font('Arial', 12, 'bold'),
                            bg='#007AFF', fg='white', relief='flat',
                            padx=20, pady=8, command=self.prev_image)
         prev_btn.pack(side='left')
         
-        next_btn = tk.Button(nav_frame, text="下一张 ➡", 
+        next_btn = tk.Button(nav_frame, text="下一张 (→) ➡", 
                            font=get_safe_font('Arial', 12, 'bold'),
                            bg='#007AFF', fg='white', relief='flat',
                            padx=20, pady=8, command=self.next_image)
@@ -946,29 +948,34 @@ class ImageViewer:
         help_text = """图片查看器快捷键：
 
 📸 图片导航：
-  ← / A / ↑ / W    上一张图片
-  → / D / ↓ / S    下一张图片
-  Home             第一张图片
-  End              最后一张图片
+  ← / A / ↑ / W      上一张图片
+  → / D / ↓ / S      下一张图片
+  Home               第一张图片
+  End                最后一张图片
 
 🔍 缩放控制：
-  + / =            放大
-  -                缩小
-  0                重置缩放
+  + / =              放大图片
+  -                  缩小图片
+  0                  重置缩放 (100%)
 
 🔄 旋转控制：
-  R                向右旋转90°
-  Shift + R        向左旋转90°
-  Ctrl + R         重置旋转
+  R                  向右旋转90°
+  Shift + R          向左旋转90°
+  Ctrl + R           重置旋转 (0°)
 
 🖥️ 显示控制：
-  F11 / F          切换全屏
-  ESC              退出全屏/关闭
-  空格              开始幻灯片
+  F11 / F            切换全屏模式
+  ESC                退出全屏/关闭窗口
+  空格                开始/暂停幻灯片
 
 ℹ️ 其他功能：
-  I                显示图片信息
-  H / F1           显示此帮助"""
+  I                  显示图片详细信息
+  H / F1             显示此快捷键帮助
+
+💡 提示：
+  • 双击图片也可切换全屏
+  • 使用鼠标滚轮进行缩放
+  • 点击图片获得键盘焦点"""
         
         messagebox.showinfo("快捷键帮助", help_text)
     
