@@ -35,16 +35,30 @@ class PhotoAlbumApp:
         self.root.configure(bg=self.bg_color)
         self.style.configure('TFrame', background=self.bg_color)
         self.style.configure('TLabel', background=self.bg_color, foreground=self.text_color)
-        # 配置按钮样式
-        self.style.configure('TButton',
+        
+        # 创建自定义按钮样式，完全覆盖主题
+        self.style.element_create("Custom.Button.button", "from", "default")
+        self.style.layout("Custom.TButton",
+                         [('Custom.Button.button', {'children': [
+                             ('Button.focus', {'children': [
+                                 ('Button.padding', {'children': [
+                                     ('Button.label', {'sticky': 'nswe'})
+                                 ], 'sticky': 'nswe'})
+                             ], 'sticky': 'nswe'})
+                         ], 'sticky': 'nswe'})])
+        
+        self.style.configure("Custom.TButton",
                             background=self.accent_color,
                             foreground='white',
-                            padding=8,
                             borderwidth=0,
-                            relief='flat',
+                            focuscolor='none',
+                            padding=(10, 8),
                             font=('Microsoft YaHei', 10))
-        self.style.map('TButton',
-                      background=[('active', '#303f9f'), ('pressed', '#283593'), ('hover', '#5c6bc0')])
+        
+        self.style.map("Custom.TButton",
+                      background=[('active', '#303f9f'), ('pressed', '#283593')],
+                      foreground=[('active', 'white'), ('pressed', 'white'), ('!disabled', 'white')],
+                      relief=[('pressed', 'flat'), ('!pressed', 'flat')])
 
         # 配置卡片样式
         self.style.configure('Card.TFrame',
@@ -68,7 +82,6 @@ class PhotoAlbumApp:
         self.style.map('TEntry',
                       bordercolor=[('focus', self.accent_color)])
         self.style.configure('TRadiobutton', background=self.bg_color, foreground=self.text_color)
-        self.style.configure('TEntry', padding=6, relief='flat', fieldbackground=self.card_bg, bordercolor=self.border_color)
         
         # 存储配置的文件夹路径
         # 加载上次保存的路径
@@ -97,10 +110,11 @@ class PhotoAlbumApp:
         path_entry = ttk.Entry(path_frame, textvariable=self.path_var, width=50, font=('Microsoft YaHei', 10))
         path_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
-        browse_btn = ttk.Button(path_frame, text="浏览", command=self.browse_folder, width=8)
+        # 使用自定义按钮样式
+        browse_btn = ttk.Button(path_frame, text="浏览", command=self.browse_folder, width=8, style="Custom.TButton")
         browse_btn.pack(side=tk.LEFT, padx=5)
 
-        scan_btn = ttk.Button(path_frame, text="扫描相册", command=self.scan_albums, width=10)
+        scan_btn = ttk.Button(path_frame, text="扫描相册", command=self.scan_albums, width=10, style="Custom.TButton")
         scan_btn.pack(side=tk.LEFT, padx=5)
         
         # 相册显示区域
@@ -333,16 +347,16 @@ class ImageViewer:
         main_frame = ttk.Frame(self.parent)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # 创建导航按钮
+        # 创建导航按钮 - 使用自定义样式
         nav_frame = ttk.Frame(main_frame)
         nav_frame.pack(fill=tk.X, pady=10)
         
-        ttk.Button(nav_frame, text="上一张", command=self.prev_image).pack(side=tk.LEFT, padx=10)
-        ttk.Button(nav_frame, text="下一张", command=self.next_image).pack(side=tk.LEFT, padx=10)
+        ttk.Button(nav_frame, text="上一张", command=self.prev_image, style="Custom.TButton").pack(side=tk.LEFT, padx=10)
+        ttk.Button(nav_frame, text="下一张", command=self.next_image, style="Custom.TButton").pack(side=tk.LEFT, padx=10)
         
         self.status_var = tk.StringVar()
         ttk.Label(nav_frame, textvariable=self.status_var).pack(side=tk.LEFT, padx=10)
-        
+
         # 创建图片显示区域
         self.image_frame = ttk.Frame(main_frame)
         self.image_frame.pack(fill=tk.BOTH, expand=True)
@@ -371,11 +385,6 @@ class ImageViewer:
         if 0 <= self.current_index < len(self.image_files):
             image_path = self.image_files[self.current_index]
             
-            # 更新状态
-            # 更新状态和图片信息
-            self.status_var.set(f"{self.current_index + 1}/{len(self.image_files)}")
-            self.image_info.config(text=f"{os.path.basename(image_path)} ({img.width}×{img.height})")
-            
             # 加载并调整图片大小以适应窗口
             try:
                 img = Image.open(image_path)
@@ -396,6 +405,10 @@ class ImageViewer:
                 
                 self.image_label.config(image=photo)
                 self.image_label.image = photo  # 保持引用
+                
+                # 更新状态和图片信息
+                self.status_var.set(f"{self.current_index + 1}/{len(self.image_files)}")
+                self.image_info.config(text=f"{os.path.basename(image_path)} ({img.width}×{img.height})")
                 
             except Exception as e:
                 print(f"无法加载图片 {image_path}: {e}")
