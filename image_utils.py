@@ -114,19 +114,37 @@ class ImageProcessor:
     
     @classmethod
     def create_thumbnail(cls, image_path, size=(200, 200)):
-        """创建图片缩略图"""
+        """创建图片缩略图，支持Unicode路径"""
         try:
             # 使用pathlib处理路径
             image_path = Path(image_path)
             
             if not image_path.exists():
+                print(f"图片文件不存在: {image_path}")
                 return None
                 
             # 打开图片
             with Image.open(str(image_path)) as img:
-                # 创建缩略图
+                # 自动旋转（基于EXIF）
+                img = cls.auto_rotate_image(img)
+                
+                # 创建缩略图 - 保持宽高比
                 img.thumbnail(size, Image.Resampling.LANCZOS)
-                return img.copy()
+                
+                # 创建白色背景
+                background = Image.new('RGB', size, '#F2F2F7')
+                
+                # 计算居中位置
+                x = (size[0] - img.width) // 2
+                y = (size[1] - img.height) // 2
+                
+                # 粘贴图片到背景
+                if img.mode == 'RGBA':
+                    background.paste(img, (x, y), img)
+                else:
+                    background.paste(img, (x, y))
+                
+                return background
                 
         except Exception as e:
             print(f"创建缩略图时出错 {image_path}: {e}")
@@ -134,9 +152,15 @@ class ImageProcessor:
     
     @classmethod
     def load_image_with_mode(cls, image_path, window_width, window_height, mode="fit", rotation=0):
-        """根据指定模式加载图片"""
+        """根据指定模式加载图片，支持Unicode路径"""
         try:
-            img = Image.open(image_path)
+            image_path = Path(image_path)
+            
+            if not image_path.exists():
+                print(f"图片文件不存在: {image_path}")
+                return None, 0, 0, 0, 0
+                
+            img = Image.open(str(image_path))
             
             # 自动旋转（基于EXIF）
             img = cls.auto_rotate_image(img)
@@ -148,8 +172,10 @@ class ImageProcessor:
             original_width, original_height = img.size
             
             if mode == "fit":
+                # 适应窗口大小
                 img.thumbnail((window_width - 40, window_height - 40), Image.Resampling.LANCZOS)
             elif mode == "fill":
+                # 填充窗口
                 img_ratio = img.width / img.height
                 win_ratio = (window_width - 40) / (window_height - 40)
                 
@@ -166,7 +192,10 @@ class ImageProcessor:
                 img = img.crop((left, top, left + window_width - 40, top + window_height - 40))
             # mode == "original" 时不做任何处理
             
-            return ImageTk.PhotoImage(img), img.width, img.height, original_width, original_height
+            # 转换为PhotoImage
+            photo = ImageTk.PhotoImage(img)
+            return photo, img.width, img.height, original_width, original_height
+            
         except Exception as e:
             print(f"无法加载图片 {image_path}: {e}")
             return None, 0, 0, 0, 0
