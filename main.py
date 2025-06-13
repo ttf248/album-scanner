@@ -12,11 +12,12 @@ CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.album_scanner_config.json'
 
 class PhotoAlbumApp:
     def __init__(self, root):
-        self.root = ThemedTk(theme="arc")  # 使用现代主题
+        self.root = root  # 使用传入的root实例
         self.root.title("相册扫描器")
         self.root.geometry("1000x700")
         self.root.minsize(800, 600)
-        self.root.configure(bg=self.root.cget("bg"))
+        # 应用主题
+        self.root.set_theme("arc")
 
         # 设置样式
         self.style = ttk.Style()
@@ -411,6 +412,6 @@ class ImageViewer:
         self.load_image()
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ThemedTk()
     app = PhotoAlbumApp(root)
     root.mainloop()
