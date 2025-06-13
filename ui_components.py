@@ -704,6 +704,88 @@ class AlbumGrid:
             # 创建最基本的显示
             self._create_fallback_display(albums)
     
+    def _add_hover_effects(self, album_frame, open_btn, fav_btn):
+        """添加悬停效果"""
+        try:
+            # 相册卡片悬停效果
+            def on_album_enter(event):
+                album_frame.configure(relief='solid', bd=2)
+                
+            def on_album_leave(event):
+                album_frame.configure(relief='solid', bd=1)
+            
+            album_frame.bind('<Enter>', on_album_enter)
+            album_frame.bind('<Leave>', on_album_leave)
+            
+            # 按钮悬停效果
+            def on_open_btn_enter(event):
+                open_btn.configure(bg='#0056D6')
+                
+            def on_open_btn_leave(event):
+                open_btn.configure(bg='#007AFF')
+                
+            open_btn.bind('<Enter>', on_open_btn_enter)
+            open_btn.bind('<Leave>', on_open_btn_leave)
+            
+            # 收藏按钮悬停效果
+            def on_fav_btn_enter(event):
+                current_bg = fav_btn.cget('bg')
+                if current_bg == '#FF9500':  # 已收藏
+                    fav_btn.configure(bg='#E6830C')
+                else:  # 未收藏
+                    fav_btn.configure(bg='#6D6D80')
+                    
+            def on_fav_btn_leave(event):
+                current_bg = fav_btn.cget('bg')
+                if current_bg == '#E6830C':  # 已收藏悬停
+                    fav_btn.configure(bg='#FF9500')
+                else:  # 未收藏悬停
+                    fav_btn.configure(bg='#8E8E93')
+                    
+            fav_btn.bind('<Enter>', on_fav_btn_enter)
+            fav_btn.bind('<Leave>', on_fav_btn_leave)
+            
+        except Exception as e:
+            print(f"添加悬停效果时出错: {e}")
+    
+    def _create_fallback_display(self, albums):
+        """创建基本的显示方式作为备用"""
+        try:
+            # 清除现有内容
+            if hasattr(self, 'scrollable_frame') and self.scrollable_frame:
+                for widget in self.scrollable_frame.winfo_children():
+                    widget.destroy()
+                
+                # 创建简单的列表显示
+                error_label = tk.Label(self.scrollable_frame, 
+                                     text="界面组件出错，使用简化显示", 
+                                     font=get_safe_font('Arial', 14), 
+                                     bg='#F2F2F7', fg='#FF3B30')
+                error_label.pack(pady=10)
+                
+                # 简单显示相册
+                for album in albums:
+                    try:
+                        album_name = album.get('name', '未知相册')
+                        album_path = album.get('path', '')
+                        image_count = album.get('image_count', 0)
+                        
+                        simple_frame = tk.Frame(self.scrollable_frame, bg='white', relief='solid', bd=1)
+                        simple_frame.pack(fill='x', padx=10, pady=2)
+                        
+                        info_text = f"{album_name} ({image_count} 张图片)"
+                        tk.Label(simple_frame, text=info_text, bg='white', anchor='w').pack(side='left', padx=10, pady=5)
+                        
+                        if album_path:
+                            tk.Button(simple_frame, text="打开", 
+                                    command=lambda p=album_path: self.open_callback(p)).pack(side='right', padx=10)
+                    except Exception as e:
+                        print(f"创建简化相册项时出错: {e}")
+                        continue
+                        
+        except Exception as e:
+            print(f"创建备用显示时出错: {e}")
+    
     def _update_cover(self, label, photo):
         """更新封面图片"""
         try:
