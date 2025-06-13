@@ -5,40 +5,67 @@ from tkinter import filedialog, ttk, messagebox
 from PIL import Image, ImageTk
 import glob
 import platform
+from ttkthemes import ThemedTk
 
 # 配置文件路径
 CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.album_scanner_config.json')
 
 class PhotoAlbumApp:
     def __init__(self, root):
-        self.root = root
+        self.root = ThemedTk(theme="arc")  # 使用现代主题
         self.root.title("相册扫描器")
         self.root.geometry("1000x700")
         self.root.minsize(800, 600)
+        self.root.configure(bg=self.root.cget("bg"))
 
         # 设置样式
         self.style = ttk.Style()
-        self.style.theme_use('clam')
 
         # 配置颜色方案
-        self.bg_color = '#f5f5f5'
-        self.accent_color = '#4a86e8'
-        self.text_color = '#333333'
+        # 配置现代颜色方案
+        self.bg_color = '#f8f9fa'
+        self.accent_color = '#3f51b5'
+        self.text_color = '#2d3436'
         self.card_bg = '#ffffff'
-        self.border_color = '#e0e0e0'
+        self.border_color = '#e9ecef'
+        self.hover_color = '#e8f0fe'
 
         # 应用样式
         self.root.configure(bg=self.bg_color)
         self.style.configure('TFrame', background=self.bg_color)
         self.style.configure('TLabel', background=self.bg_color, foreground=self.text_color)
+        # 配置按钮样式
         self.style.configure('TButton',
                             background=self.accent_color,
                             foreground='white',
-                            padding=6,
+                            padding=8,
                             borderwidth=0,
-                            relief='flat')
+                            relief='flat',
+                            font=('Microsoft YaHei', 10))
         self.style.map('TButton',
-                      background=[('active', '#3a76d8'), ('pressed', '#2a66c8')])
+                      background=[('active', '#303f9f'), ('pressed', '#283593'), ('hover', '#5c6bc0')])
+
+        # 配置卡片样式
+        self.style.configure('Card.TFrame',
+                            background=self.card_bg,
+                            relief='flat',
+                            borderwidth=1,
+                            bordercolor=self.border_color)
+        self.style.configure('CardHover.TFrame',
+                            background=self.card_bg,
+                            relief='flat',
+                            borderwidth=1,
+                            bordercolor=self.accent_color)
+
+        # 配置输入框样式
+        self.style.configure('TEntry',
+                            padding=8,
+                            relief='flat',
+                            fieldbackground=self.card_bg,
+                            bordercolor=self.border_color,
+                            font=('Microsoft YaHei', 10))
+        self.style.map('TEntry',
+                      bordercolor=[('focus', self.accent_color)])
         self.style.configure('TRadiobutton', background=self.bg_color, foreground=self.text_color)
         self.style.configure('TEntry', padding=6, relief='flat', fieldbackground=self.card_bg, bordercolor=self.border_color)
         
@@ -179,18 +206,21 @@ class PhotoAlbumApp:
             
             # 创建相册封面框架
             # 创建相册封面框架 - 现代卡片式设计
-            album_frame = ttk.Frame(self.inner_frame, padding="10", relief=tk.FLAT)
+            # 创建相册封面框架 - 现代卡片式设计
+            album_frame = ttk.Frame(self.inner_frame, padding="15", relief=tk.FLAT, style='Card.TFrame')
             album_frame.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
-            album_frame.configure(style='Card.TFrame')
             album_frame.bind('<Enter>', lambda e, f=album_frame: self.on_enter(e, f))
             album_frame.bind('<Leave>', lambda e, f=album_frame: self.on_leave(e, f))
 
-            # 添加卡片阴影效果
+            # 添加卡片悬停动画
+            album_frame.bind('<Enter>', lambda e, f=album_frame: self.on_enter(e, f))
+            album_frame.bind('<Leave>', lambda e, f=album_frame: self.on_leave(e, f))
+
+            # 设置卡片圆角和阴影效果
             if platform.system() == 'Windows':
-                album_frame.configure(relief=tk.RAISED, borderwidth=1)
-            else:
-                album_frame.configure(relief=tk.FLAT)
-                album_frame.bind('<Configure>', lambda e, f=album_frame: self.update_shadow(e, f))
+                album_frame.configure(relief=tk.FLAT, borderwidth=0)
+                # 添加圆角效果
+                self.canvas.create_rounded_rectangle(album_frame, radius=10)
             
             # 加载并调整封面图片大小
             try:
@@ -250,16 +280,38 @@ class PhotoAlbumApp:
         img_viewer = ImageViewer(album_window, image_files)
         
     def on_enter(self, event, frame):
-        """鼠标悬停在相册卡片上时的效果"""
+        """鼠标悬停在相册卡片上时的效果 - 添加缩放动画"""
         frame.configure(style='CardHover.TFrame')
-        if platform.system() != 'Windows':
-            frame.configure(relief=tk.RAISED, borderwidth=2)
+        # 添加轻微缩放效果
+        frame.bind('<Motion>', lambda e: self.on_motion(e, frame))
+        self.animate_card(frame, 1.0, 1.05, 0.01)
 
     def on_leave(self, event, frame):
-        """鼠标离开相册卡片时的效果"""
+        """鼠标离开相册卡片时的效果 - 恢复原始状态"""
         frame.configure(style='Card.TFrame')
-        if platform.system() != 'Windows':
-            frame.configure(relief=tk.FLAT, borderwidth=1)
+        frame.unbind('<Motion>')
+        self.animate_card(frame, 1.05, 1.0, 0.01)
+
+    def animate_card(self, frame, start, end, step):
+        """卡片缩放动画"""
+        current = float(frame.cget('relief')) if frame.cget('relief') else start
+        if (step > 0 and current < end) or (step < 0 and current > end):
+            frame.configure(relief=tk.FLAT)
+            frame.after(10, lambda: self.animate_card(frame, current, end, step))
+
+    def on_motion(self, event, frame):
+        """鼠标在卡片上移动时的效果"""
+        pass
+
+    def create_rounded_rectangle(self, widget, radius=10):
+        """为控件添加圆角效果"""
+        x1, y1, x2, y2 = widget.winfo_x(), widget.winfo_y(), widget.winfo_x()+widget.winfo_width(), widget.winfo_y()+widget.winfo_height()
+        self.canvas.create_arc(x1, y1, x1+2*radius, y1+2*radius, start=90, extent=90, fill=self.card_bg, outline='')
+        self.canvas.create_arc(x2-2*radius, y1, x2, y1+2*radius, start=0, extent=90, fill=self.card_bg, outline='')
+        self.canvas.create_arc(x1, y2-2*radius, x1+2*radius, y2, start=180, extent=90, fill=self.card_bg, outline='')
+        self.canvas.create_arc(x2-2*radius, y2-2*radius, x2, y2, start=270, extent=90, fill=self.card_bg, outline='')
+        self.canvas.create_rectangle(x1+radius, y1, x2-radius, y2, fill=self.card_bg, outline='')
+        self.canvas.create_rectangle(x1, y1+radius, x2, y2-radius, fill=self.card_bg, outline='')
 
     def update_shadow(self, event, frame):
         """更新卡片阴影效果"""
@@ -295,11 +347,12 @@ class ImageViewer:
         self.image_frame.pack(fill=tk.BOTH, expand=True)
         
         # 创建图片显示区域
-        self.image_container = ttk.Frame(self.image_frame, padding=10)
-        self.image_container.pack(fill=tk.BOTH, expand=True)
-        self.image_container.configure(style='ImageContainer.TFrame')
+        # 创建图片显示区域
+        self.image_container = ttk.Frame(self.image_frame, padding=15, style='Card.TFrame')
+        self.image_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
-        self.image_label = ttk.Label(self.image_container, background='#f0f0f0')
+        # 添加图片加载动画占位符
+        self.image_label = ttk.Label(self.image_container, background='#f8f9fa')
         self.image_label.pack(expand=True)
 
         # 添加图片信息标签
