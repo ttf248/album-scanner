@@ -270,8 +270,16 @@ class PhotoAlbumApp:
             self.album_grid.display_albums(self.albums)
             total_images = sum(len(album['image_files']) for album in self.albums)
             
-            self.status_bar.set_status(f"扫描完成，找到 {len(self.albums)} 个相册")
+            # 显示扫描结果统计
+            if len(self.albums) > 10:
+                self.status_bar.set_status(f"扫描完成，找到 {len(self.albums)} 个相册（支持滚动浏览）")
+            else:
+                self.status_bar.set_status(f"扫描完成，找到 {len(self.albums)} 个相册")
             self.status_bar.set_info(f"共 {total_images} 张图片")
+            
+            # 如果相册很多，提示用户可以滚动
+            if len(self.albums) > 15:
+                messagebox.showinfo("提示", f"找到 {len(self.albums)} 个相册！\n使用鼠标滚轮或拖拽滚动条浏览所有相册。")
             
         except Exception as e:
             error_msg = f"扫描相册时发生错误：{str(e)}"
@@ -314,6 +322,10 @@ class PhotoAlbumApp:
             self.status_bar.set_status(f"显示 {len(valid_albums)} 个最近浏览的相册")
             total_images = sum(len(album['image_files']) for album in valid_albums)
             self.status_bar.set_info(f"共 {total_images} 张图片")
+            
+            # 如果结果很多，提示滚动
+            if len(valid_albums) > 10:
+                self.status_bar.set_status(f"显示 {len(valid_albums)} 个最近浏览的相册（支持滚动浏览）")
         else:
             messagebox.showinfo("提示", "最近浏览的相册都不存在了")
             self.status_bar.set_status("最近浏览的相册不存在")
@@ -350,6 +362,10 @@ class PhotoAlbumApp:
             self.status_bar.set_status(f"显示 {len(valid_albums)} 个收藏的相册")
             total_images = sum(len(album['image_files']) for album in valid_albums)
             self.status_bar.set_info(f"共 {total_images} 张图片")
+            
+            # 如果结果很多，提示滚动
+            if len(valid_albums) > 10:
+                self.status_bar.set_status(f"显示 {len(valid_albums)} 个收藏的相册（支持滚动浏览）")
         else:
             messagebox.showinfo("提示", "收藏的相册都不存在了")
             self.status_bar.set_status("收藏的相册不存在")

@@ -253,14 +253,38 @@ class AlbumGrid:
         
         # 确保初始化grid_frame
         self.grid_frame = None
+        self.canvas = None
+        self.scrollbar = None
+        self.scrollable_frame = None
         self.create_widgets()
     
     def create_widgets(self):
-        """创建网格组件"""
+        """创建带滚动功能的网格组件"""
         try:
-            # 创建网格容器
+            # 创建主容器
             self.grid_frame = tk.Frame(self.parent, bg='#F2F2F7')
             self.grid_frame.pack(fill='both', expand=True)
+            
+            # 创建Canvas和滚动条
+            self.canvas = tk.Canvas(self.grid_frame, bg='#F2F2F7', highlightthickness=0)
+            self.scrollbar = tk.Scrollbar(self.grid_frame, orient="vertical", command=self.canvas.yview)
+            self.scrollable_frame = tk.Frame(self.canvas, bg='#F2F2F7')
+            
+            # 配置滚动
+            self.scrollable_frame.bind(
+                "<Configure>",
+                lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            )
+            
+            self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+            self.canvas.configure(yscrollcommand=self.scrollbar.set)
+            
+            # 布局Canvas和滚动条
+            self.canvas.pack(side="left", fill="both", expand=True)
+            self.scrollbar.pack(side="right", fill="y")
+            
+            # 绑定鼠标滚轮事件
+            self._bind_mousewheel()
             
             # 显示初始状态
             self._show_empty_state()
@@ -276,43 +300,65 @@ class AlbumGrid:
                                  bg='white', fg='red')
             error_label.pack(expand=True)
     
+    def _bind_mousewheel(self):
+        """绑定鼠标滚轮事件"""
+        def _on_mousewheel(event):
+            if self.canvas:
+                self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def _bind_to_mousewheel(event):
+            if self.canvas:
+                self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        def _unbind_from_mousewheel(event):
+            if self.canvas:
+                self.canvas.unbind_all("<MouseWheel>")
+        
+        if self.canvas:
+            self.canvas.bind('<Enter>', _bind_to_mousewheel)
+            self.canvas.bind('<Leave>', _unbind_from_mousewheel)
+    
     def _show_empty_state(self):
         """显示空状态"""
         try:
-            if self.grid_frame:
+            if self.scrollable_frame:
                 # 清除现有内容
-                for widget in self.grid_frame.winfo_children():
+                for widget in self.scrollable_frame.winfo_children():
                     widget.destroy()
                 
                 # 显示空状态提示
-                empty_label = tk.Label(self.grid_frame, text="请选择文件夹并扫描相册", 
+                empty_label = tk.Label(self.scrollable_frame, text="请选择文件夹并扫描相册", 
                                       font=get_safe_font('Arial', 16), 
                                       bg='#F2F2F7', fg='#6D6D80')
-                empty_label.pack(expand=True)
+                empty_label.pack(expand=True, pady=100)
         except Exception as e:
             print(f"显示空状态时出错: {e}")
         
     def display_albums(self, albums):
-        """显示相册（简化版本）"""
+        """显示相册（带滚动支持）"""
         try:
-            # 确保grid_frame存在
-            if not hasattr(self, 'grid_frame') or self.grid_frame is None:
-                print("grid_frame不存在，重新创建")
+            # 确保组件存在
+            if not hasattr(self, 'scrollable_frame') or self.scrollable_frame is None:
+                print("scrollable_frame不存在，重新创建")
                 self.create_widgets()
                 
             # 清除现有内容
-            for widget in self.grid_frame.winfo_children():
+            for widget in self.scrollable_frame.winfo_children():
                 widget.destroy()
             
             if not albums or len(albums) == 0:
                 # 显示空状态
-                empty_label = tk.Label(self.grid_frame, text="暂无相册", 
+                empty_label = tk.Label(self.scrollable_frame, text="暂无相册", 
                                       font=get_safe_font('Arial', 16), 
                                       bg='#F2F2F7', fg='#6D6D80')
-                empty_label.pack(expand=True)
+                empty_label.pack(expand=True, pady=100)
                 return
             
-            # 创建简单的列表显示
+            # 隐藏导航栏的启动页（如果存在）
+            if hasattr(self, 'nav_bar') and self.nav_bar and hasattr(self.nav_bar, 'hide_start_page'):
+                self.nav_bar.hide_start_page()
+            
+            # 创建相册列表显示
             for i, album in enumerate(albums):
                 try:
                     # 验证相册数据完整性
@@ -326,12 +372,13 @@ class AlbumGrid:
                     if not album_path:
                         continue
                     
-                    album_frame = tk.Frame(self.grid_frame, bg='white', relief='solid', bd=1)
-                    album_frame.pack(fill='x', padx=10, pady=5)
+                    # 创建相册卡片
+                    album_frame = tk.Frame(self.scrollable_frame, bg='white', relief='solid', bd=1)
+                    album_frame.pack(fill='x', padx=15, pady=8)
                     
                     # 相册信息
                     info_frame = tk.Frame(album_frame, bg='white')
-                    info_frame.pack(fill='x', padx=10, pady=10)
+                    info_frame.pack(fill='x', padx=15, pady=12)
                     
                     # 名称
                     name_label = tk.Label(info_frame, text=album_name, 
@@ -346,20 +393,20 @@ class AlbumGrid:
                     stats_label = tk.Label(info_frame, text=stats_text, 
                                           font=get_safe_font('Arial', 12), 
                                           bg='white', fg='gray')
-                    stats_label.pack(anchor='w')
+                    stats_label.pack(anchor='w', pady=(2, 0))
                     
                     # 按钮框架
                     btn_frame = tk.Frame(info_frame, bg='white')
-                    btn_frame.pack(anchor='w', pady=(5, 0))
+                    btn_frame.pack(anchor='w', pady=(8, 0))
                     
                     # 打开按钮
                     open_btn = tk.Button(btn_frame, text="打开", 
                                        font=get_safe_font('Arial', 10), 
                                        bg='#007AFF', fg='white',
-                                       relief='flat', bd=0, padx=15, pady=5,
+                                       relief='flat', bd=0, padx=15, pady=6,
                                        cursor='hand2',
                                        command=lambda path=album_path: self.open_callback(path))
-                    open_btn.pack(side='left', padx=(0, 5))
+                    open_btn.pack(side='left', padx=(0, 8))
                     
                     # 收藏按钮
                     is_fav = self.is_favorite(album_path) if self.is_favorite else False
@@ -368,7 +415,7 @@ class AlbumGrid:
                     fav_btn = tk.Button(btn_frame, text=fav_text, 
                                       font=get_safe_font('Arial', 12), 
                                       bg=fav_color, fg='white',
-                                      relief='flat', bd=0, padx=10, pady=5,
+                                      relief='flat', bd=0, padx=12, pady=6,
                                       cursor='hand2',
                                       command=lambda path=album_path: self.favorite_callback(path))
                     fav_btn.pack(side='left')
@@ -380,6 +427,10 @@ class AlbumGrid:
                 except Exception as e:
                     print(f"显示相册项时出错 {i}: {e}")
                     continue
+            
+            # 更新滚动区域
+            self.scrollable_frame.update_idletasks()
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
                 
         except Exception as e:
             print(f"显示相册列表时出错: {e}")
