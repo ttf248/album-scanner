@@ -1,17 +1,21 @@
 import json
 import os
 from pathlib import Path
+from ..utils.logger import get_logger, log_info, log_warning, log_error, log_exception
 
 class ConfigManager:
     """配置管理器，支持Unicode路径"""
     
     def __init__(self):
+        self.logger = get_logger('core.config')
+        
         # 使用pathlib处理配置目录
         self.config_dir = Path.home() / '.album_scanner'
         self.config_file = self.config_dir / 'settings.json'
         
         # 确保配置目录存在
         self.config_dir.mkdir(exist_ok=True)
+        log_info(f"配置目录: {self.config_dir}", 'core.config')
         
         # 默认配置
         self.default_config = {
@@ -26,6 +30,7 @@ class ConfigManager:
         
         # 加载配置
         self.config = self.load_config()
+        log_info("配置管理器初始化完成", 'core.config')
     
     def load_config(self):
         """加载配置文件"""
@@ -37,10 +42,12 @@ class ConfigManager:
                     for key, value in self.default_config.items():
                         if key not in config:
                             config[key] = value
+                    log_info(f"成功加载配置文件: {self.config_file}", 'core.config')
                     return config
         except Exception as e:
-            print(f"加载配置文件失败: {e}")
+            log_exception(f"加载配置文件失败: {e}", 'core.config')
         
+        log_info("使用默认配置", 'core.config')
         return self.default_config.copy()
     
     def save_config(self):
@@ -48,8 +55,9 @@ class ConfigManager:
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
+            log_info("配置文件保存成功", 'core.config')
         except Exception as e:
-            print(f"保存配置文件失败: {e}")
+            log_exception(f"保存配置文件失败: {e}", 'core.config')
     
     def get_last_path(self):
         """获取上次使用的路径"""
@@ -83,6 +91,7 @@ class ConfigManager:
         
         self.config['recent_albums'] = recent_albums
         self.save_config()
+        log_info(f"添加到最近浏览: {os.path.basename(album_path)}", 'core.config')
     
     def get_recent_albums(self):
         """获取最近浏览的漫画"""
@@ -109,6 +118,7 @@ class ConfigManager:
             favorites.append(album_path)
             self.config['favorites'] = favorites
             self.save_config()
+            log_info(f"添加到收藏: {os.path.basename(album_path)}", 'core.config')
     
     def remove_favorite(self, album_path):
         """从收藏中移除"""
@@ -119,6 +129,7 @@ class ConfigManager:
             favorites.remove(album_path)
             self.config['favorites'] = favorites
             self.save_config()
+            log_info(f"移除收藏: {os.path.basename(album_path)}", 'core.config')
     
     def is_favorite(self, album_path):
         """检查是否已收藏"""

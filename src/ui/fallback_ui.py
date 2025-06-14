@@ -1,15 +1,17 @@
 import tkinter as tk
 from ...utils.image_utils import ImageProcessor
+from ...utils.logger import get_logger, log_info, log_error, log_exception
 
 class FallbackUIManager:
     """备用UI管理器"""
     
     def __init__(self, app):
         self.app = app
+        self.logger = get_logger('ui.fallback')
     
     def create_fallback_ui(self):
         """创建备用简化UI"""
-        print("使用简化界面模式")
+        log_info("启动简化界面模式", 'ui.fallback')
         
         # 简单的顶部框架
         top_frame = tk.Frame(self.app.root, bg='lightgray')
@@ -35,10 +37,9 @@ class FallbackUIManager:
             from .components.album_grid import AlbumGrid  # 从components导入
             self.app.album_grid = AlbumGrid(main_frame, self.app.open_album, self.app.toggle_favorite)
             self.app.album_grid.is_favorite = self.app.config_manager.is_favorite
+            log_info("成功创建漫画网格组件", 'ui.fallback')
         except Exception as e:
-            print(f"创建简化漫画网格时出错: {e}")
-            import traceback
-            traceback.print_exc()
+            log_exception(f"创建简化漫画网格时出错: {e}", 'ui.fallback')
             # 创建最基本的显示
             self.app.album_grid = self._create_basic_album_display(main_frame)
         
@@ -48,6 +49,7 @@ class FallbackUIManager:
     def _create_basic_album_display(self, parent):
         """创建最基本的漫画显示"""
         app_instance = self.app  # 保存对主应用的引用
+        logger = self.logger
         
         class BasicAlbumDisplay:
             def __init__(self, parent):
@@ -56,6 +58,7 @@ class FallbackUIManager:
                 self.display_frame.pack(fill='both', expand=True)
                 # 确保有grid_frame属性以保持兼容性
                 self.grid_frame = self.display_frame
+                log_info("创建基础漫画显示组件", 'ui.fallback')
                 
             def display_albums(self, albums):
                 try:
@@ -66,7 +69,10 @@ class FallbackUIManager:
                     if not albums or len(albums) == 0:
                         tk.Label(self.display_frame, text="暂无漫画", 
                                bg='white', fg='gray').pack(expand=True)
+                        log_info("显示空漫画列表", 'ui.fallback')
                         return
+                    
+                    log_info(f"开始显示 {len(albums)} 个漫画", 'ui.fallback')
                     
                     # 简单列表显示
                     for album in albums:
@@ -86,10 +92,12 @@ class FallbackUIManager:
                                 tk.Button(frame, text="打开", 
                                         command=lambda p=album_path: app_instance.open_album(p)).pack(side='right', padx=5)
                         except Exception as e:
-                            print(f"显示漫画时出错: {e}")
+                            log_error(f"显示漫画时出错: {e}", 'ui.fallback')
                             continue
+                    
+                    log_info(f"成功显示 {len(albums)} 个漫画", 'ui.fallback')
                 except Exception as e:
-                    print(f"BasicAlbumDisplay.display_albums出错: {e}")
+                    log_exception(f"BasicAlbumDisplay.display_albums出错: {e}", 'ui.fallback')
         
         return BasicAlbumDisplay(parent)
     

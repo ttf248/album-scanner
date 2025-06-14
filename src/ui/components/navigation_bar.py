@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from .style_manager import get_safe_font, StyleManager
+from ...utils.logger import get_logger, log_info, log_error, log_exception
 
 class NavigationBar:
     """现代化导航栏组件"""
@@ -12,6 +13,7 @@ class NavigationBar:
         self.path_var = path_var
         self.recent_callback = recent_callback
         self.favorites_callback = favorites_callback
+        self.logger = get_logger('ui.navigation')
         
         # 新增回调
         self.home_callback = None  # 将由app_manager设置
@@ -28,7 +30,11 @@ class NavigationBar:
         # 确保样式管理器正确初始化
         self._ensure_style_manager()
         
-        self.create_widgets()
+        try:
+            self.create_widgets()
+            log_info("导航栏组件创建成功", 'ui.navigation')
+        except Exception as e:
+            log_exception(f"创建导航栏组件时出错: {e}", 'ui.navigation')
     
     def _ensure_style_manager(self):
         """确保样式管理器正确初始化，提供默认配置"""
@@ -170,6 +176,7 @@ class NavigationBar:
     
     def _create_simple_widgets(self):
         """创建简化版导航栏（错误恢复）"""
+        log_info("使用简化版导航栏界面", 'ui.navigation')
         self.nav_frame = tk.Frame(self.parent, bg='#ffffff', height=80)
         self.nav_frame.pack(side='top', fill='x', padx=16, pady=(16, 8))
         
@@ -181,7 +188,8 @@ class NavigationBar:
         
         # 简单路径显示
         tk.Label(self.nav_frame, textvariable=self.path_var).pack(side='bottom', fill='x')
-
+        log_info("简化版导航栏创建完成", 'ui.navigation')
+    
     def create_breadcrumb(self):
         """创建面包屑导航"""
         # 清空现有面包屑
@@ -396,26 +404,33 @@ class NavigationBar:
     
     def copy_path_to_clipboard(self):
         """复制当前路径到剪贴板"""
-        path = self.path_var.get()
-        if path:
-            self.parent.clipboard_clear()
-            self.parent.clipboard_append(path)
-            # 可以添加一个临时提示表示复制成功
-            print(f"路径已复制到剪贴板: {path}")
+        try:
+            path = self.path_var.get()
+            if path:
+                self.parent.clipboard_clear()
+                self.parent.clipboard_append(path)
+                log_info(f"路径已复制到剪贴板: {path}", 'ui.navigation')
+        except Exception as e:
+            log_error(f"复制路径到剪贴板时出错: {e}", 'ui.navigation')
     
     def update_button_states(self, has_path=False, is_scanning=False):
         """更新按钮状态"""
-        if len(self.buttons) >= 2:
-            # 扫描按钮只在有路径时启用
-            scan_btn = self.buttons[1]
-            if has_path and not is_scanning:
-                scan_btn.configure(state='normal')
-            else:
-                scan_btn.configure(state='disabled')
+        try:
+            if len(self.buttons) >= 2:
+                # 扫描按钮只在有路径时启用
+                scan_btn = self.buttons[1]
+                if has_path and not is_scanning:
+                    scan_btn.configure(state='normal')
+                else:
+                    scan_btn.configure(state='disabled')
+                
+                # 扫描时禁用选择文件夹按钮
+                browse_btn = self.buttons[0]
+                if is_scanning:
+                    browse_btn.configure(state='disabled')
+                else:
+                    browse_btn.configure(state='normal')
             
-            # 扫描时禁用选择文件夹按钮
-            browse_btn = self.buttons[0]
-            if is_scanning:
-                browse_btn.configure(state='disabled')
-            else:
-                browse_btn.configure(state='normal')
+            log_info(f"按钮状态更新 - 有路径: {has_path}, 扫描中: {is_scanning}", 'ui.navigation')
+        except Exception as e:
+            log_error(f"更新按钮状态时出错: {e}", 'ui.navigation')

@@ -3,6 +3,7 @@ from tkinter import messagebox, Toplevel
 from src.utils.image_utils import ImageProcessor
 from ..ui.components.image_viewer import ImageViewer  # 直接从components导入
 from ..ui.components.style_manager import get_safe_font  # 直接从components导入
+from ..utils.logger import get_logger, log_info, log_warning, log_error, log_exception
 from PIL import Image, ImageTk
 import tkinter as tk
 import os
@@ -12,15 +13,20 @@ class AlbumViewerManager:
     
     def __init__(self, app):
         self.app = app
+        self.logger = get_logger('core.viewer')
     
     def open_album(self, folder_path, album_list=None, current_album_index=None, start_at_last=False):
         """打开漫画查看"""
         try:
+            log_info(f"打开漫画: {os.path.basename(folder_path)}", 'core.viewer')
             image_files = ImageProcessor.get_image_files(folder_path)
             
             if not image_files:
+                log_warning(f"文件夹中没有找到图片: {folder_path}", 'core.viewer')
                 messagebox.showinfo("提示", "该文件夹中没有找到图片")
                 return
+            
+            log_info(f"找到 {len(image_files)} 张图片", 'core.viewer')
             
             # 添加到最近浏览
             self.app.config_manager.add_recent_album(folder_path)
@@ -38,20 +44,24 @@ class AlbumViewerManager:
                 if start_at_last:
                     viewer.current_index = len(image_files) - 1
                     viewer.load_current_image()
+                    log_info("从最后一张图片开始查看", 'core.viewer')
                 
                 # 更新主窗口状态
                 album_name = os.path.basename(folder_path)
                 self.app.status_bar.set_status(f"已打开漫画: {album_name}")
                 self.app.status_bar.set_info(f"{len(image_files)} 张图片")
                 
+                log_info(f"成功创建图片查看器: {album_name}", 'core.viewer')
+                
             except Exception as e:
-                print(f"创建图片查看器失败: {e}")
+                log_exception(f"创建图片查看器失败: {e}", 'core.viewer')
                 # 创建简单的图片查看器
                 self._create_simple_viewer(album_window, image_files, os.path.basename(folder_path),
                                           album_list=album_list, current_album_index=current_album_index, 
                                           start_at_last=start_at_last)
             
         except Exception as e:
+            log_exception(f"打开漫画时发生错误: {e}", 'core.viewer')
             messagebox.showerror("错误", f"打开漫画时发生错误：{str(e)}")
             self.app.status_bar.set_status("打开漫画失败")
     
@@ -70,11 +80,13 @@ class AlbumViewerManager:
         album_window.transient(self.app.root)
         album_window.grab_set()
         
+        log_info(f"创建漫画查看窗口: {album_name}", 'core.viewer')
         return album_window
     
     def _create_simple_viewer(self, window, image_files, album_name, album_list=None, current_album_index=None, start_at_last=False):
         """创建简单的图片查看器"""
         try:
+            log_info(f"创建简单图片查看器: {album_name}", 'core.viewer')
             window.title(f"简单查看器 - {album_name}")
             window.configure(bg='black')
             
@@ -120,6 +132,7 @@ class AlbumViewerManager:
                 if current_index[0] > 0:
                     current_index[0] -= 1
                     load_image()
+                    log_info(f"切换到上一张图片: {current_index[0]+1}/{len(image_files)}", 'core.viewer')
                 elif album_list and current_album_index is not None:
                     # 检查边界情况
                     if current_album_index <= 0:
@@ -127,6 +140,7 @@ class AlbumViewerManager:
                         if hasattr(self, 'app') and hasattr(self.app, 'config_manager'):
                             if self.app.config_manager.get_show_switch_notification():
                                 messagebox.showinfo("提示", "已经是第一个相册了")
+                        log_info("已到达第一个相册的边界", 'core.viewer')
                         return
                     
                     # 切换到上一个相册的最后一张
@@ -138,16 +152,18 @@ class AlbumViewerManager:
                                 messagebox.showinfo("切换相册", f"正在切换到上一个相册：{prev_album_name}")
                         
                         prev_album_path = album_list[current_album_index - 1]
+                        log_info(f"切换到上一个相册: {os.path.basename(prev_album_path)}", 'core.viewer')
                         window.destroy()
                         self.open_album(prev_album_path, album_list=album_list, 
                                       current_album_index=current_album_index - 1, start_at_last=True)
                     except Exception as e:
-                        print(f"简单查看器切换到上一个相册失败: {e}")
+                        log_exception(f"简单查看器切换到上一个相册失败: {e}", 'core.viewer')
             
             def next_image():
                 if current_index[0] < len(image_files) - 1:
                     current_index[0] += 1
                     load_image()
+                    log_info(f"切换到下一张图片: {current_index[0]+1}/{len(image_files)}", 'core.viewer')
                 elif album_list and current_album_index is not None:
                     # 检查边界情况
                     if current_album_index >= len(album_list) - 1:
@@ -155,6 +171,7 @@ class AlbumViewerManager:
                         if hasattr(self, 'app') and hasattr(self.app, 'config_manager'):
                             if self.app.config_manager.get_show_switch_notification():
                                 messagebox.showinfo("提示", "已经是最后一个相册了")
+                        log_info("已到达最后一个相册的边界", 'core.viewer')
                         return
                     
                     # 切换到下一个相册的第一张
@@ -166,11 +183,12 @@ class AlbumViewerManager:
                                 messagebox.showinfo("切换相册", f"正在切换到下一个相册：{next_album_name}")
                         
                         next_album_path = album_list[current_album_index + 1]
+                        log_info(f"切换到下一个相册: {os.path.basename(next_album_path)}", 'core.viewer')
                         window.destroy()
                         self.open_album(next_album_path, album_list=album_list, 
                                       current_album_index=current_album_index + 1, start_at_last=False)
                     except Exception as e:
-                        print(f"简单查看器切换到下一个相册失败: {e}")
+                        log_exception(f"简单查看器切换到下一个相册失败: {e}", 'core.viewer')
             
             # 按钮 - 添加快捷键提示  
             tk.Button(control_frame, text="上一张 (←)", command=prev_image).pack(side='left', padx=5, pady=5)
@@ -201,8 +219,9 @@ class AlbumViewerManager:
             
             # 加载第一张图片
             window.after(100, load_image)
+            log_info("简单图片查看器创建完成", 'core.viewer')
             
         except Exception as e:
-            print(f"创建简单查看器失败: {e}")
+            log_exception(f"创建简单查看器失败: {e}", 'core.viewer')
             messagebox.showerror("错误", "无法创建图片查看器")
             window.destroy()

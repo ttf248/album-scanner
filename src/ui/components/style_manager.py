@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from ...utils.logger import get_logger, log_info, log_warning, log_error
 
 def get_safe_font(font_family, size, style=None):
     """获取安全的字体配置"""
@@ -10,6 +11,7 @@ def get_safe_font(font_family, size, style=None):
             return (font_family, size)
     except:
         # 如果字体不可用，使用默认字体
+        log_warning(f"字体 {font_family} 不可用，使用默认字体", 'ui.style')
         if style:
             return ('Arial', size, style)
         else:
@@ -22,6 +24,7 @@ class StyleManager:
         self.root = root
         self.style = style
         self.current_tooltip = None  # 跟踪当前显示的提示窗口
+        self.logger = get_logger('ui.style')
         
         # 现代化颜色主题 - 基于 Arc 主题的配色方案
         self.colors = {
@@ -123,15 +126,21 @@ class StyleManager:
             'shadow_blur': 8
         }
         
+        log_info("样式管理器初始化完成", 'ui.style')
         self.configure_styles()
     
     def configure_styles(self):
         """配置现代化样式"""
-        # 设置根窗口背景
-        self.root.configure(bg=self.colors['bg_primary'])
-        
-        if self.style:
-            self.configure_ttk_styles()
+        try:
+            # 设置根窗口背景
+            self.root.configure(bg=self.colors['bg_primary'])
+            
+            if self.style:
+                self.configure_ttk_styles()
+            
+            log_info("现代化样式配置完成", 'ui.style')
+        except Exception as e:
+            log_error(f"配置样式时出错: {e}", 'ui.style')
     
     def configure_ttk_styles(self):
         """配置 TTK 样式"""
@@ -244,30 +253,33 @@ class StyleManager:
             if self.current_tooltip:
                 try:
                     self.current_tooltip.destroy()
-                except:
-                    pass
+                except Exception as e:
+                    log_warning(f"销毁工具提示时出错: {e}", 'ui.style')
                 self.current_tooltip = None
             
-            # 创建新的提示窗口
-            self.current_tooltip = tk.Toplevel()
-            self.current_tooltip.wm_overrideredirect(True)
-            self.current_tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
-            
-            label = tk.Label(self.current_tooltip, text=text,
-                           background=self.colors['text_primary'],
-                           foreground=self.colors['text_white'],
-                           font=self.fonts['small'],
-                           relief='flat',
-                           padx=8, pady=4)
-            label.pack()
+            try:
+                # 创建新的提示窗口
+                self.current_tooltip = tk.Toplevel()
+                self.current_tooltip.wm_overrideredirect(True)
+                self.current_tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+                
+                label = tk.Label(self.current_tooltip, text=text,
+                               background=self.colors['text_primary'],
+                               foreground=self.colors['text_white'],
+                               font=self.fonts['small'],
+                               relief='flat',
+                               padx=8, pady=4)
+                label.pack()
+            except Exception as e:
+                log_error(f"创建工具提示时出错: {e}", 'ui.style')
         
         def hide_tooltip(event):
             # 鼠标离开时立即销毁提示窗口
             if self.current_tooltip:
                 try:
                     self.current_tooltip.destroy()
-                except:
-                    pass
+                except Exception as e:
+                    log_warning(f"隐藏工具提示时出错: {e}", 'ui.style')
                 self.current_tooltip = None
         
         widget.bind('<Enter>', show_tooltip)
