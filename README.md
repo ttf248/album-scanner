@@ -2,6 +2,8 @@
 
 一个采用现代iPhone风格设计的图片相册管理工具，支持瀑布流展示、批量扫描、高级图片查看和智能相册管理。
 
+[预览](docs/snapshot.png)
+
 ## 🎨 设计特色
 
 ### iPhone风格界面
@@ -90,14 +92,12 @@ python main.py
 ## 📚 完整文档
 
 ### 📋 用户文档
-- 📋 [安装部署指南](docs/INSTALLATION.md) - 详细的安装、配置和部署说明
+
 - ⌨️ [快捷键文档](docs/SHORTCUTS.md) - 完整的快捷键列表和使用技巧
-- 🔧 [故障排除指南](docs/TROUBLESHOOTING.md) - 常见问题和解决方案
 
 ### 🏗️ 开发文档
+
 - 🏗️ [架构设计文档](docs/ARCHITECTURE.md) - 项目架构和技术实现
-- 🚀 [开发指南](docs/DEVELOPMENT.md) - 开发环境、贡献指南和路线图
-- 📋 [更新日志](docs/CHANGELOG.md) - 版本历史和更新记录
 
 ## 🤝 参与贡献
 
