@@ -32,7 +32,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller==5.10.1
+          pip install pyinstaller==6.2.0
 
       # 验证Python环境
       - name: Verify Python environment
@@ -66,8 +66,14 @@ jobs:
           python -c "import sys; print('Python executable:', sys.executable)"
           python -c "import sys; print('Python path:', sys.path)"
           python -c "import encodings.aliases; print('encodings.aliases imported successfully')"
-          # 运行PyInstaller
-          pyinstaller --clean --noconfirm album-scanner.spec
+          # 尝试直接使用 PyInstaller 而不是 spec 文件
+          if [ -f "album-scanner.spec" ]; then
+            echo "Using spec file..."
+            pyinstaller --clean --noconfirm album-scanner.spec
+          else
+            echo "Using direct PyInstaller command..."
+            pyinstaller --onefile --name album-scanner --hidden-import=encodings.aliases --hidden-import=re main.py
+          fi
 
       # 进一步压缩可执行文件 (Windows)
       - name: Compress executable (Windows)
@@ -135,9 +141,6 @@ jobs:
           # 上传文件到 release
           gh release upload ${{ github.event.release.tag_name }} \
             ./dist/ubuntu/album-scanner-linux \
-            ./dist/windows/album-scanner-windows.exe \
-            --repo ${{ github.repository }} \
-            --clobber
             ./dist/windows/album-scanner-windows.exe \
             --repo ${{ github.repository }} \
             --clobber
