@@ -764,6 +764,21 @@ class AlbumGrid:
                                  fg=self.style_manager.colors['text_tertiary'])
             cover_label.pack(fill='both', expand=True)
             
+            # 绑定封面预览事件
+            def on_cover_enter(event):
+                self._show_preview_window(event, album_path, album_name)
+            
+            def on_cover_leave(event):
+                self._schedule_hide_preview()
+            
+            # 为封面相关组件绑定事件
+            cover_frame.bind('<Enter>', on_cover_enter)
+            cover_frame.bind('<Leave>', on_cover_leave)
+            cover_container.bind('<Enter>', on_cover_enter)
+            cover_container.bind('<Leave>', on_cover_leave)
+            cover_label.bind('<Enter>', on_cover_enter)
+            cover_label.bind('<Leave>', on_cover_leave)
+            
             # 异步加载封面
             self._load_cover_image(album_path, 
                                  lambda photo, label=cover_label: self._update_cover(label, photo))
