@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox, Toplevel
 import os
-from ..utils.image_utils import ImageProcessor, SlideshowManager
+from ...utils.image_utils import ImageProcessor, SlideshowManager
 from PIL import Image, ImageTk
 import threading
 from concurrent.futures import ThreadPoolExecutor

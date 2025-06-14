@@ -1,6 +1,6 @@
 import os
 from tkinter import messagebox
-from ..utils.image_utils import ImageProcessor
+from ...utils.image_utils import ImageProcessor
 
 class AlbumFavoritesManager:
     """相册收藏管理器"""

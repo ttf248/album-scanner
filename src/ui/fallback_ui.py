@@ -1,5 +1,5 @@
 import tkinter as tk
-from ..utils.image_utils import ImageProcessor
+from ...utils.image_utils import ImageProcessor
 
 class FallbackUIManager:
     """备用UI管理器"""
