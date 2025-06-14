@@ -26,6 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          pip install pyinstaller
 
       # 打包为可执行文件
       - name: Build executable
