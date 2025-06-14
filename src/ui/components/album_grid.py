@@ -395,31 +395,68 @@ class AlbumGrid:
                                 max_pixels = 50 * 1024 * 1024  # 50兆像素
                                 if width * height > max_pixels:
                                     print(f"图片尺寸过大 ({width}x{height}={width*height} pixels)，跳过: {cover_path}")
-                                    return  # 修复: 将 continue 改为 return，因为这里不在循环中
+                                    return
                                 
                                 # 安全加载图片
                                 img.load()
-                                # 创建缩略图
-                                img.thumbnail(size, Image.Resampling.LANCZOS)
                                 
-                                # 创建背景
-                                bg_color = (242, 242, 247, 255) if size[0] <= 120 else (255, 255, 255, 255)
-                                bg = Image.new('RGBA', size, bg_color)
-                                
-                                # 计算居中位置
-                                img_w, img_h = img.size
-                                x = (size[0] - img_w) // 2
-                                y = (size[1] - img_h) // 2
-                                
-                                # 确保图片有alpha通道
-                                if img.mode != 'RGBA':
-                                    img = img.convert('RGBA')
-                                
-                                # 粘贴到背景上
-                                bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+                                # 创建适应目标尺寸的缩略图
+                                # 对于竖屏预览，我们希望保持宽高比但填满区域
+                                if size[0] >= 200:  # 预览窗口的大尺寸
+                                    # 计算缩放比例以适应目标尺寸
+                                    img_ratio = img.width / img.height
+                                    target_ratio = size[0] / size[1]
+                                    
+                                    if img_ratio > target_ratio:
+                                        # 图片更宽，以高度为准
+                                        new_height = size[1]
+                                        new_width = int(new_height * img_ratio)
+                                    else:
+                                        # 图片更高，以宽度为准
+                                        new_width = size[0]
+                                        new_height = int(new_width / img_ratio)
+                                    
+                                    # 调整图片大小
+                                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                                    
+                                    # 创建目标尺寸的背景
+                                    bg_color = (255, 255, 255, 255)
+                                    bg = Image.new('RGBA', size, bg_color)
+                                    
+                                    # 计算居中位置
+                                    x = (size[0] - new_width) // 2
+                                    y = (size[1] - new_height) // 2
+                                    
+                                    # 确保图片有alpha通道
+                                    if img.mode != 'RGBA':
+                                        img = img.convert('RGBA')
+                                    
+                                    # 粘贴到背景上
+                                    bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+                                    final_img = bg
+                                else:
+                                    # 小尺寸缩略图（卡片封面）
+                                    img.thumbnail(size, Image.Resampling.LANCZOS)
+                                    
+                                    # 创建背景
+                                    bg_color = (242, 242, 247, 255)
+                                    bg = Image.new('RGBA', size, bg_color)
+                                    
+                                    # 计算居中位置
+                                    img_w, img_h = img.size
+                                    x = (size[0] - img_w) // 2
+                                    y = (size[1] - img_h) // 2
+                                    
+                                    # 确保图片有alpha通道
+                                    if img.mode != 'RGBA':
+                                        img = img.convert('RGBA')
+                                    
+                                    # 粘贴到背景上
+                                    bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+                                    final_img = bg
                                 
                                 # 转换为PhotoImage
-                                photo = ImageTk.PhotoImage(bg)
+                                photo = ImageTk.PhotoImage(final_img)
                                 
                                 # 缓存图片
                                 target_cache[cache_key] = photo
@@ -429,7 +466,7 @@ class AlbumGrid:
                                 return
                         except Exception as img_error:
                             print(f"无法安全加载图片 {cover_path}: {img_error}")
-                            return  # 修复: 将 continue 改为 return，因为这里不在循环中
+                            return
                 
                 # 如果没有找到图片，返回默认图标
                 callback(None)
@@ -474,7 +511,7 @@ class AlbumGrid:
             self.preview_window.attributes('-topmost', True)
             
             # 创建内容框架
-            content_frame = tk.Frame(self.preview_window, bg='white', padx=10, pady=10)
+            content_frame = tk.Frame(self.preview_window, bg='white', padx=12, pady=12)
             content_frame.pack()
             
             # 标题
@@ -483,11 +520,11 @@ class AlbumGrid:
                                  bg='white', fg='black')
             title_label.pack(pady=(0, 8))
             
-            # 封面占位符 - 更大尺寸
+            # 封面占位符 - 竖屏尺寸 (200x240)
             self.preview_cover_label = tk.Label(content_frame, text="🔄 加载中...",
                                               font=get_safe_font('Arial', 16),
                                               bg='#F2F2F7', fg='#8E8E93',
-                                              width=200, height=200)
+                                              width=200, height=240)
             self.preview_cover_label.pack()
             
             # 计算窗口位置（跟随鼠标，但避免超出屏幕）
@@ -498,9 +535,9 @@ class AlbumGrid:
             screen_width = self.preview_window.winfo_screenwidth()
             screen_height = self.preview_window.winfo_screenheight()
             
-            # 预估窗口大小
+            # 预估窗口大小 - 适应新的封面尺寸
             window_width = 240
-            window_height = 280
+            window_height = 320
             
             # 调整位置避免超出屏幕
             if x + window_width > screen_width:
@@ -514,10 +551,10 @@ class AlbumGrid:
             # 显示窗口
             self.preview_window.deiconify()
             
-            # 异步加载大尺寸封面
+            # 异步加载竖屏尺寸封面 (200x240)
             self._load_cover_image(album_path, 
                                  lambda photo: self._update_preview_cover(photo),
-                                 size=(200, 200))
+                                 size=(200, 240))
             
             # 绑定鼠标离开事件
             self._bind_preview_events()
