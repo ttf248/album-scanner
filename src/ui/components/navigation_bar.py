@@ -235,14 +235,63 @@ class NavigationBar:
             self.current_location_label.configure(text="")
         elif location_type == "recent":
             self.current_location_label.configure(text=" > 📝 最近浏览")
+            # 预加载最近浏览的封面
+            self._preload_recent_covers()
         elif location_type == "favorites":
             self.current_location_label.configure(text=" > ⭐ 我的收藏")
+            # 预加载收藏的封面
+            self._preload_favorite_covers()
         elif location_type == "scan":
             folder_name = location_name or "扫描结果"
             if len(folder_name) > 20:
                 folder_name = folder_name[:17] + "..."
             self.current_location_label.configure(text=f" > 📁 {folder_name}")
     
+    def _preload_recent_covers(self):
+        """预加载最近浏览的封面"""
+        try:
+            # 获取图片缓存实例
+            from ...utils.image_cache import get_image_cache
+            cache = get_image_cache()
+            
+            # 这里可以从历史记录中获取路径列表
+            # 为了演示，我们延迟执行，等待实际数据加载
+            self.parent.after(1000, lambda: self._do_preload_recent())
+            
+        except Exception as e:
+            from ...utils.logger import log_error
+            log_error(f"预加载最近浏览封面失败: {e}", 'ui.navigation')
+    
+    def _preload_favorite_covers(self):
+        """预加载收藏的封面"""
+        try:
+            # 获取图片缓存实例
+            from ...utils.image_cache import get_image_cache
+            cache = get_image_cache()
+            
+            # 延迟执行，等待实际数据加载
+            self.parent.after(1000, lambda: self._do_preload_favorites())
+            
+        except Exception as e:
+            from ...utils.logger import log_error
+            log_error(f"预加载收藏封面失败: {e}", 'ui.navigation')
+    
+    def _do_preload_recent(self):
+        """执行最近浏览预加载"""
+        try:
+            # 这里可以与history manager协作获取最近路径
+            pass
+        except Exception as e:
+            print(f"执行最近浏览预加载失败: {e}")
+    
+    def _do_preload_favorites(self):
+        """执行收藏预加载"""
+        try:
+            # 这里可以与favorites manager协作获取收藏路径
+            pass
+        except Exception as e:
+            print(f"执行收藏预加载失败: {e}")
+
     def go_home(self):
         """返回首页（扫描结果）"""
         if self.home_callback:

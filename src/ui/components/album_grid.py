@@ -284,17 +284,23 @@ class AlbumGrid:
         try:
             self.albums = albums
             
+            print(f"AlbumGrid.update_albums 被调用，albums数量: {len(albums) if albums else 0}")
+            
             # 清除现有显示
             if self.scrollable_frame:
                 for widget in self.scrollable_frame.winfo_children():
                     widget.destroy()
             
             if not albums:
+                print("没有漫画数据，显示空状态")
                 self.show_empty_state()
                 return
             
             # 隐藏空状态
             self.hide_empty_state()
+            
+            # 启动封面预加载
+            self._start_cover_preload(albums)
             
             # 创建现代化漫画卡片
             self._create_modern_album_cards(albums)
@@ -304,6 +310,48 @@ class AlbumGrid:
             import traceback
             traceback.print_exc()
     
+    def _start_cover_preload(self, albums):
+        """启动封面预加载"""
+        try:
+            if not albums:
+                return
+            
+            # 提取相册路径
+            album_paths = [album.get('path') for album in albums if album.get('path')]
+            
+            if album_paths:
+                # 延迟启动预加载，避免阻塞UI创建
+                self.parent.after(500, lambda: self._preload_covers(album_paths))
+                print(f"计划预加载 {len(album_paths)} 个相册的封面")
+                
+        except Exception as e:
+            print(f"启动封面预加载失败: {e}")
+    
+    def _preload_covers(self, album_paths):
+        """执行封面预加载"""
+        try:
+            # 分批预加载，避免一次性加载太多
+            batch_size = 10
+            current_batch = album_paths[:batch_size]
+            remaining_paths = album_paths[batch_size:]
+            
+            # 预加载当前批次
+            self.image_cache.preload_album_covers(
+                current_batch, 
+                size=(320, 350), 
+                widget=self.parent
+            )
+            
+            # 如果还有剩余，安排下一批预加载
+            if remaining_paths:
+                self.parent.after(2000, lambda: self._preload_covers(remaining_paths))
+                print(f"预加载了 {len(current_batch)} 个封面，剩余 {len(remaining_paths)} 个")
+            else:
+                print("所有封面预加载完成")
+                
+        except Exception as e:
+            print(f"执行封面预加载失败: {e}")
+
     def _load_cover_async(self, album_path, cover_label):
         """异步加载封面图片 - 使用新的缓存系统"""
         try:
@@ -546,7 +594,8 @@ class AlbumGrid:
             # 异步加载封面 - 适应新卡片尺寸
             self._load_cover_image(album_path, 
                                  lambda photo, label=cover_label: self._update_cover(label, photo),
-                                 size=(320, 350))  # 适应420x560卡片的封面尺寸
+                                 size=(320, 350)  # 适应420x560卡片的封面尺寸
+            )
             
             # 信息区域 - 限制高度确保按钮可见
             info_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'], height=120)

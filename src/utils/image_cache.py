@@ -259,14 +259,206 @@ class ImageCache:
     
     def shutdown(self):
         """关闭缓存管理器"""
-        # 停止工作线程
-        for _ in range(2):
-            self.load_queue.put(None)
+        try:
+            # 停止工作线程
+            for _ in range(2):
+                try:
+                    self.load_queue.put(None)
+                except Exception as e:
+                    log_error(f"停止工作线程时出错: {e}", 'image_cache')
+            
+            # 关闭线程池
+            try:
+                self.executor.shutdown(wait=True)
+            except Exception as e:
+                log_error(f"关闭线程池时出错: {e}", 'image_cache')
+            
+            # 清理回调
+            try:
+                self.callbacks.clear()
+                self.loading_set.clear()
+            except Exception as e:
+                log_error(f"清理回调时出错: {e}", 'image_cache')
+            
+            log_info("图片缓存管理器已关闭", 'image_cache')
+            
+        except Exception as e:
+            log_error(f"关闭缓存管理器时出错: {e}", 'image_cache')
+
+    def preload_images(self, image_paths, size, widget, priority=False):
+        """预加载图片列表（批量加载）
         
-        # 关闭线程池
-        self.executor.shutdown(wait=True)
+        Args:
+            image_paths: 图片路径列表
+            size: 目标尺寸 (width, height)
+            widget: 用于在主线程中执行回调的widget
+            priority: 是否优先加载
+        """
+        try:
+            preload_count = 0
+            for image_path in image_paths:
+                try:
+                    cache_key = self._generate_cache_key(image_path, size)
+                    
+                    # 检查是否已在内存缓存中
+                    if cache_key in self.memory_cache:
+                        continue
+                    
+                    # 检查是否正在加载
+                    if cache_key in self.loading_set:
+                        continue
+                    
+                    # 添加到加载队列
+                    self.loading_set.add(cache_key)
+                    task = (image_path, size, cache_key)
+                    
+                    if priority:
+                        # 优先任务：插入到队列前面
+                        temp_queue = queue.Queue()
+                        temp_queue.put(task)
+                        
+                        # 将现有任务移到临时队列后面
+                        while not self.load_queue.empty():
+                            try:
+                                existing_task = self.load_queue.get_nowait()
+                                temp_queue.put(existing_task)
+                            except queue.Empty:
+                                break
+                        
+                        # 重新装载队列
+                        self.load_queue = temp_queue
+                    else:
+                        self.load_queue.put(task)
+                    
+                    preload_count += 1
+                    
+                except Exception as e:
+                    log_error(f"添加预加载任务失败 {image_path}: {e}", 'image_cache')
+                    continue
+                
+            log_info(f"预加载 {preload_count} 张图片，优先级: {priority}", 'image_cache')
+            
+        except Exception as e:
+            log_error(f"预加载图片失败: {e}", 'image_cache')
+
+    def preload_album_covers(self, album_paths, size=(320, 350), widget=None):
+        """预加载相册封面
         
-        log_info("图片缓存管理器已关闭", 'image_cache')
+        Args:
+            album_paths: 相册路径列表
+            size: 封面尺寸
+            widget: widget引用
+        """
+        try:
+            cover_paths = []
+            for album_path in album_paths:
+                try:
+                    # 查找每个相册的第一张图片
+                    cover_path = self._find_album_cover(album_path)
+                    if cover_path:
+                        cover_paths.append(cover_path)
+                except Exception as e:
+                    log_error(f"查找相册封面失败 {album_path}: {e}", 'image_cache')
+                    continue
+            
+            if cover_paths:
+                # 使用低优先级预加载封面
+                self.preload_images(cover_paths, size, widget or self._dummy_widget(), priority=False)
+                log_info(f"开始预加载 {len(cover_paths)} 个相册封面", 'image_cache')
+                
+        except Exception as e:
+            log_error(f"预加载相册封面失败: {e}", 'image_cache')
+    
+    def _find_album_cover(self, album_path):
+        """查找相册的封面图片"""
+        try:
+            image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
+            
+            # 按文件名排序查找第一张图片
+            files = []
+            for file in os.listdir(album_path):
+                if any(file.lower().endswith(ext) for ext in image_extensions):
+                    files.append(os.path.join(album_path, file))
+            
+            if files:
+                files.sort()
+                return files[0]
+            
+            return None
+            
+        except Exception as e:
+            log_error(f"查找封面图片失败 {album_path}: {e}", 'image_cache')
+            return None
+    
+    def _dummy_widget(self):
+        """创建一个虚拟widget用于预加载"""
+        try:
+            import tkinter as tk
+            dummy = tk.Frame()
+            dummy.after_idle = lambda callback, *args: None  # 空回调
+            return dummy
+        except:
+            return None
+
+    def cleanup_old_cache(self, max_age_days=30):
+        """清理过期的磁盘缓存文件"""
+        try:
+            import time
+            current_time = time.time()
+            max_age_seconds = max_age_days * 24 * 3600
+            
+            cleaned_count = 0
+            cleaned_size = 0
+            
+            for cache_file in self.cache_dir.glob('*.png'):
+                try:
+                    file_stat = cache_file.stat()
+                    file_age = current_time - file_stat.st_mtime
+                    if file_age > max_age_seconds:
+                        cleaned_size += file_stat.st_size
+                        cache_file.unlink()
+                        cleaned_count += 1
+                except Exception as e:
+                    log_error(f"删除缓存文件失败 {cache_file}: {e}", 'image_cache')
+            
+            if cleaned_count > 0:
+                cleaned_mb = cleaned_size / (1024 * 1024)
+                log_info(f"清理了 {cleaned_count} 个过期缓存文件，释放空间 {cleaned_mb:.1f}MB", 'image_cache')
+            
+            return cleaned_count
+            
+        except Exception as e:
+            log_error(f"清理过期缓存失败: {e}", 'image_cache')
+            return 0
+
+    def get_cache_stats(self):
+        """获取缓存统计信息"""
+        try:
+            memory_size = len(self.memory_cache)
+            disk_size = 0
+            disk_files = 0
+            loading_count = len(self.loading_set)
+            pending_callbacks = len(self.callbacks)
+            
+            try:
+                for cache_file in self.cache_dir.glob('*.png'):
+                    disk_files += 1
+                    disk_size += cache_file.stat().st_size
+            except Exception as e:
+                log_error(f"计算磁盘缓存大小失败: {e}", 'image_cache')
+            
+            return {
+                'memory_items': memory_size,
+                'disk_files': disk_files,
+                'disk_size_mb': disk_size / (1024 * 1024),
+                'loading_count': loading_count,
+                'pending_callbacks': pending_callbacks,
+                'queue_size': self.load_queue.qsize()
+            }
+            
+        except Exception as e:
+            log_error(f"获取缓存统计失败: {e}", 'image_cache')
+            return {}
 
 # 全局缓存实例
 _global_cache = None
@@ -277,3 +469,40 @@ def get_image_cache():
     if _global_cache is None:
         _global_cache = ImageCache()
     return _global_cache
+
+def _create_fallback_cache():
+    """创建备用缓存（当主缓存创建失败时）"""
+    class FallbackCache:
+        def load_image_async(self, image_path, size, widget, success_callback, error_callback=None):
+            """简单的同步加载实现"""
+            try:
+                from PIL import Image, ImageTk
+                with Image.open(image_path) as img:
+                    img.thumbnail(size, Image.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(img)
+                    widget.after_idle(success_callback, photo)
+            except Exception as e:
+                if error_callback:
+                    widget.after_idle(error_callback, e)
+        
+        def preload_images(self, image_paths, size, widget, priority=False):
+            """备用缓存不支持预加载"""
+            pass
+        
+        def preload_album_covers(self, album_paths, size=(320, 350), widget=None):
+            """备用缓存不支持预加载"""
+            pass
+        
+        def shutdown(self):
+            pass
+        
+        def clear_memory_cache(self):
+            pass
+        
+        def cleanup_old_cache(self, max_age_days=30):
+            return 0
+        
+        def get_cache_stats(self):
+            return {}
+    
+    return FallbackCache()

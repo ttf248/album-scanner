@@ -211,7 +211,70 @@ class PhotoAlbumApp:
             # 更新面包屑
             folder_name = os.path.basename(current_path) if current_path else "扫描结果"
             self.nav_bar.update_breadcrumb("scan", folder_name)
+            
+            # 启动智能预加载
+            self._start_intelligent_preload()
     
+    def _start_intelligent_preload(self):
+        """启动智能预加载"""
+        try:
+            if not self.albums:
+                return
+            
+            # 延迟启动预加载，确保UI已经稳定
+            self.root.after(2000, self._do_intelligent_preload)
+            
+        except Exception as e:
+            print(f"启动智能预加载失败: {e}")
+    
+    def _do_intelligent_preload(self):
+        """执行智能预加载"""
+        try:
+            from src.utils.image_cache import get_image_cache
+            cache = get_image_cache()
+            
+            # 获取缓存统计
+            stats = cache.get_cache_stats()
+            print(f"缓存统计: {stats}")
+            
+            # 预加载策略：
+            # 1. 优先预加载前10个相册的封面
+            # 2. 如果内存缓存较少，预加载更多
+            # 3. 考虑用户的浏览历史
+            
+            priority_albums = self.albums[:10]  # 前10个优先
+            remaining_albums = self.albums[10:20] if len(self.albums) > 10 else []  # 接下来10个
+            
+            # 优先预加载前10个
+            if priority_albums:
+                priority_paths = [album.get('path') for album in priority_albums if album.get('path')]
+                cache.preload_album_covers(priority_paths, size=(320, 350), widget=self.root)
+                print(f"优先预加载 {len(priority_paths)} 个封面")
+            
+            # 如果内存缓存较少，继续预加载
+            if stats.get('memory_items', 0) < 20 and remaining_albums:
+                self.root.after(5000, lambda: self._preload_remaining(remaining_albums))
+            
+            # 清理过期缓存（低优先级任务）
+            self.root.after(10000, lambda: cache.cleanup_old_cache(max_age_days=7))
+            
+        except Exception as e:
+            print(f"执行智能预加载失败: {e}")
+    
+    def _preload_remaining(self, albums):
+        """预加载剩余相册"""
+        try:
+            from src.utils.image_cache import get_image_cache
+            cache = get_image_cache()
+            
+            album_paths = [album.get('path') for album in albums if album.get('path')]
+            if album_paths:
+                cache.preload_album_covers(album_paths, size=(320, 350), widget=self.root)
+                print(f"后台预加载 {len(album_paths)} 个封面")
+                
+        except Exception as e:
+            print(f"预加载剩余相册失败: {e}")
+
     def show_recent_albums(self):
         """显示最近浏览的漫画"""
         from src.core.album_history import AlbumHistoryManager
@@ -321,7 +384,11 @@ class PhotoAlbumApp:
             try:
                 from src.utils.image_cache import get_image_cache
                 cache = get_image_cache()
-                cache.shutdown()
+                if cache and hasattr(cache, 'shutdown'):
+                    # 显示缓存统计
+                    stats = cache.get_cache_stats()
+                    print(f"关闭时缓存统计: {stats}")
+                    cache.shutdown()
             except Exception as e:
                 print(f"清理图片缓存时出错: {e}")
             
