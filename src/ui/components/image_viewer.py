@@ -12,7 +12,7 @@ from tkinter import messagebox
 class ImageViewer:
     """图片查看器"""
     
-    def __init__(self, parent, image_files, config_manager):
+    def __init__(self, parent, image_files, config_manager, album_list=None, current_album_index=None, album_viewer_manager=None):
         self.parent = parent
         self.image_files = image_files
         self.config_manager = config_manager
@@ -21,6 +21,11 @@ class ImageViewer:
         self.zoom_factor = 1.0
         self.is_fullscreen = False
         self.rotation = 0  # 旋转角度
+        
+        # 相册切换相关
+        self.album_list = album_list  # 相册列表
+        self.current_album_index = current_album_index  # 当前相册在列表中的索引
+        self.album_viewer_manager = album_viewer_manager  # 相册查看器管理器
         
         # 设置窗口属性
         self.parent.configure(bg='#1D1D1F')
@@ -51,8 +56,12 @@ class ImageViewer:
                              bg='#2C2C2E', fg='white')
         info_label.pack(anchor='w')
         
-        # 更新快捷键提示，更详细的信息
-        shortcut_label = tk.Label(left_frame, text="⌨️ 快捷键: ←→切换 +/-缩放 R旋转 F11全屏 I信息 H帮助 ESC退出",
+        # 更新快捷键提示，添加相册切换说明
+        shortcut_text = "⌨️ 快捷键: ←→切换图片/相册 +/-缩放 R旋转 F11全屏 I信息 H帮助 ESC退出"
+        if self.album_list and len(self.album_list) > 1:
+            shortcut_text += " | 📚 支持相册间自动切换"
+        
+        shortcut_label = tk.Label(left_frame, text=shortcut_text,
                                  font=get_safe_font('Arial', 9),
                                  bg='#2C2C2E', fg='#8E8E93')
         shortcut_label.pack(anchor='w', pady=(2, 0))
@@ -176,6 +185,12 @@ class ImageViewer:
             # 更新文件信息
             filename = os.path.basename(image_path)
             file_info = f"{self.current_index + 1}/{len(self.image_files)} - {filename}"
+            
+            # 如果有相册列表信息，添加相册位置信息
+            if self.album_list and self.current_album_index is not None:
+                album_info = f" | 相册 {self.current_album_index + 1}/{len(self.album_list)}"
+                file_info += album_info
+            
             self.file_info_var.set(file_info)
             
             # 加载图片
@@ -247,12 +262,18 @@ class ImageViewer:
         if self.current_index > 0:
             self.current_index -= 1
             self.load_current_image()
+        else:
+            # 已经是第一张图片，尝试切换到上一个相册的最后一张
+            self._switch_to_previous_album()
     
     def next_image(self):
         """下一张图片"""
         if self.current_index < len(self.image_files) - 1:
             self.current_index += 1
             self.load_current_image()
+        else:
+            # 已经是最后一张图片，尝试切换到下一个相册的第一张
+            self._switch_to_next_album()
     
     def goto_first_image(self):
         """跳转到第一张图片"""
@@ -374,6 +395,10 @@ class ImageViewer:
 ← / → : 上一张 / 下一张图片
 Home / End : 第一张 / 最后一张图片
 
+相册切换:
+在第一张图片时按 ← : 切换到上一个相册的最后一张
+在最后一张图片时按 → : 切换到下一个相册的第一张
+
 缩放:
 + / - : 放大 / 缩小
 鼠标滚轮 : 缩放
@@ -392,6 +417,82 @@ ESC : 退出查看器
 滚轮 : 缩放图片"""
         
         messagebox.showinfo("帮助", help_text)
+    
+    def _switch_to_previous_album(self):
+        """切换到上一个相册的最后一张图片"""
+        if not (self.album_list and self.current_album_index is not None and self.album_viewer_manager):
+            return
+            
+        # 检查边界情况
+        if self.current_album_index <= 0:
+            # 已经是第一个相册，显示提示
+            if hasattr(self.album_viewer_manager, 'app') and hasattr(self.album_viewer_manager.app, 'config_manager'):
+                if self.album_viewer_manager.app.config_manager.get_show_switch_notification():
+                    messagebox.showinfo("提示", "已经是第一个相册了")
+            return
+            
+        try:
+            # 显示切换提示
+            if hasattr(self.album_viewer_manager, 'app') and hasattr(self.album_viewer_manager.app, 'config_manager'):
+                if self.album_viewer_manager.app.config_manager.get_show_switch_notification():
+                    prev_album_name = os.path.basename(self.album_list[self.current_album_index - 1])
+                    messagebox.showinfo("切换相册", f"正在切换到上一个相册：{prev_album_name}")
+            
+            # 获取上一个相册路径
+            prev_album_path = self.album_list[self.current_album_index - 1]
+            
+            # 关闭当前窗口
+            self.parent.destroy()
+            
+            # 打开上一个相册，并跳转到最后一张图片
+            self.album_viewer_manager.open_album(
+                prev_album_path, 
+                album_list=self.album_list, 
+                current_album_index=self.current_album_index - 1,
+                start_at_last=True
+            )
+            
+        except Exception as e:
+            print(f"切换到上一个相册失败: {e}")
+            messagebox.showerror("错误", f"无法切换到上一个相册: {str(e)}")
+    
+    def _switch_to_next_album(self):
+        """切换到下一个相册的第一张图片"""
+        if not (self.album_list and self.current_album_index is not None and self.album_viewer_manager):
+            return
+            
+        # 检查边界情况
+        if self.current_album_index >= len(self.album_list) - 1:
+            # 已经是最后一个相册，显示提示
+            if hasattr(self.album_viewer_manager, 'app') and hasattr(self.album_viewer_manager.app, 'config_manager'):
+                if self.album_viewer_manager.app.config_manager.get_show_switch_notification():
+                    messagebox.showinfo("提示", "已经是最后一个相册了")
+            return
+            
+        try:
+            # 显示切换提示
+            if hasattr(self.album_viewer_manager, 'app') and hasattr(self.album_viewer_manager.app, 'config_manager'):
+                if self.album_viewer_manager.app.config_manager.get_show_switch_notification():
+                    next_album_name = os.path.basename(self.album_list[self.current_album_index + 1])
+                    messagebox.showinfo("切换相册", f"正在切换到下一个相册：{next_album_name}")
+            
+            # 获取下一个相册路径
+            next_album_path = self.album_list[self.current_album_index + 1]
+            
+            # 关闭当前窗口
+            self.parent.destroy()
+            
+            # 打开下一个相册，从第一张图片开始
+            self.album_viewer_manager.open_album(
+                next_album_path, 
+                album_list=self.album_list, 
+                current_album_index=self.current_album_index + 1,
+                start_at_last=False
+            )
+            
+        except Exception as e:
+            print(f"切换到下一个相册失败: {e}")
+            messagebox.showerror("错误", f"无法切换到下一个相册: {str(e)}")
     
     def on_mouse_wheel(self, event):
         """处理鼠标滚轮事件"""

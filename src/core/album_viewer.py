@@ -5,6 +5,7 @@ from ..ui.components.image_viewer import ImageViewer  # 直接从components导�
 from ..ui.components.style_manager import get_safe_font  # 直接从components导入
 from PIL import Image, ImageTk
 import tkinter as tk
+import os
 
 class AlbumViewerManager:
     """漫画查看器管理器"""
@@ -12,7 +13,7 @@ class AlbumViewerManager:
     def __init__(self, app):
         self.app = app
     
-    def open_album(self, folder_path):
+    def open_album(self, folder_path, album_list=None, current_album_index=None, start_at_last=False):
         """打开漫画查看"""
         try:
             image_files = ImageProcessor.get_image_files(folder_path)
@@ -29,7 +30,14 @@ class AlbumViewerManager:
             
             # 创建图片查看器
             try:
-                viewer = ImageViewer(album_window, image_files, self.app.config_manager)
+                viewer = ImageViewer(album_window, image_files, self.app.config_manager, 
+                                   album_list=album_list, current_album_index=current_album_index, 
+                                   album_viewer_manager=self)
+                
+                # 如果需要从最后一张开始，设置索引
+                if start_at_last:
+                    viewer.current_index = len(image_files) - 1
+                    viewer.load_current_image()
                 
                 # 更新主窗口状态
                 album_name = os.path.basename(folder_path)
@@ -39,7 +47,9 @@ class AlbumViewerManager:
             except Exception as e:
                 print(f"创建图片查看器失败: {e}")
                 # 创建简单的图片查看器
-                self._create_simple_viewer(album_window, image_files, os.path.basename(folder_path))
+                self._create_simple_viewer(album_window, image_files, os.path.basename(folder_path),
+                                          album_list=album_list, current_album_index=current_album_index, 
+                                          start_at_last=start_at_last)
             
         except Exception as e:
             messagebox.showerror("错误", f"打开漫画时发生错误：{str(e)}")
@@ -62,14 +72,14 @@ class AlbumViewerManager:
         
         return album_window
     
-    def _create_simple_viewer(self, window, image_files, album_name):
+    def _create_simple_viewer(self, window, image_files, album_name, album_list=None, current_album_index=None, start_at_last=False):
         """创建简单的图片查看器"""
         try:
             window.title(f"简单查看器 - {album_name}")
             window.configure(bg='black')
             
             # 当前图片索引
-            current_index = [0]
+            current_index = [len(image_files) - 1 if start_at_last else 0]
             
             # 图片显示标签
             image_label = tk.Label(window, bg='black')
@@ -110,11 +120,57 @@ class AlbumViewerManager:
                 if current_index[0] > 0:
                     current_index[0] -= 1
                     load_image()
+                elif album_list and current_album_index is not None:
+                    # 检查边界情况
+                    if current_album_index <= 0:
+                        # 已经是第一个相册，显示提示
+                        if hasattr(self, 'app') and hasattr(self.app, 'config_manager'):
+                            if self.app.config_manager.get_show_switch_notification():
+                                messagebox.showinfo("提示", "已经是第一个相册了")
+                        return
+                    
+                    # 切换到上一个相册的最后一张
+                    try:
+                        # 显示切换提示
+                        if hasattr(self, 'app') and hasattr(self.app, 'config_manager'):
+                            if self.app.config_manager.get_show_switch_notification():
+                                prev_album_name = os.path.basename(album_list[current_album_index - 1])
+                                messagebox.showinfo("切换相册", f"正在切换到上一个相册：{prev_album_name}")
+                        
+                        prev_album_path = album_list[current_album_index - 1]
+                        window.destroy()
+                        self.open_album(prev_album_path, album_list=album_list, 
+                                      current_album_index=current_album_index - 1, start_at_last=True)
+                    except Exception as e:
+                        print(f"简单查看器切换到上一个相册失败: {e}")
             
             def next_image():
                 if current_index[0] < len(image_files) - 1:
                     current_index[0] += 1
                     load_image()
+                elif album_list and current_album_index is not None:
+                    # 检查边界情况
+                    if current_album_index >= len(album_list) - 1:
+                        # 已经是最后一个相册，显示提示
+                        if hasattr(self, 'app') and hasattr(self.app, 'config_manager'):
+                            if self.app.config_manager.get_show_switch_notification():
+                                messagebox.showinfo("提示", "已经是最后一个相册了")
+                        return
+                    
+                    # 切换到下一个相册的第一张
+                    try:
+                        # 显示切换提示
+                        if hasattr(self, 'app') and hasattr(self.app, 'config_manager'):
+                            if self.app.config_manager.get_show_switch_notification():
+                                next_album_name = os.path.basename(album_list[current_album_index + 1])
+                                messagebox.showinfo("切换相册", f"正在切换到下一个相册：{next_album_name}")
+                        
+                        next_album_path = album_list[current_album_index + 1]
+                        window.destroy()
+                        self.open_album(next_album_path, album_list=album_list, 
+                                      current_album_index=current_album_index + 1, start_at_last=False)
+                    except Exception as e:
+                        print(f"简单查看器切换到下一个相册失败: {e}")
             
             # 按钮 - 添加快捷键提示  
             tk.Button(control_frame, text="上一张 (←)", command=prev_image).pack(side='left', padx=5, pady=5)
@@ -122,8 +178,12 @@ class AlbumViewerManager:
             tk.Button(control_frame, text="关闭 (ESC)", command=window.destroy).pack(side='right', padx=5, pady=5)
             
             # 添加快捷键说明标签
+            help_text = "快捷键: ← → 切换图片 | ESC 关闭"
+            if album_list and len(album_list) > 1:
+                help_text = "快捷键: ← → 切换图片/相册 | ESC 关闭"
+            
             help_label = tk.Label(control_frame, 
-                text="快捷键: ← → 切换图片 | ESC 关闭", 
+                text=help_text, 
                 bg='gray', fg='white', font=get_safe_font('Arial', 9))
             help_label.pack(pady=2)
             

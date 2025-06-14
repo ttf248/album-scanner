@@ -15,6 +15,7 @@ class NavigationBar:
         
         # 新增回调
         self.home_callback = None  # 将由app_manager设置
+        self.settings_callback = None  # 将由app_manager设置
         
         # 使用传入的样式管理器或创建新实例
         if style_manager:
@@ -153,6 +154,13 @@ class NavigationBar:
                 'type': 'secondary',
                 'shortcut': 'Ctrl+F',
                 'tooltip': '查看收藏的漫画 (Ctrl+F)'
+            },
+            {
+                'text': '⚙️ 设置',
+                'command': self.settings_callback,
+                'type': 'secondary',
+                'shortcut': 'Ctrl+,',
+                'tooltip': '打开设置对话框 (Ctrl+,)'
             }
         ]
         

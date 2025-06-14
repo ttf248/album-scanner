@@ -102,6 +102,9 @@ class PhotoAlbumApp:
             # 设置返回首页回调
             self.nav_bar.home_callback = self.return_to_scan_results
             
+            # 设置设置对话框回调
+            self.nav_bar.settings_callback = self.show_settings
+            
             # 创建现代化漫画网格
             self.album_grid = AlbumGrid(
                 self.root,
@@ -280,7 +283,31 @@ class PhotoAlbumApp:
         """打开漫画查看"""
         from src.core.album_viewer import AlbumViewerManager
         viewer_manager = AlbumViewerManager(self)
-        viewer_manager.open_album(folder_path)
+        
+        # 尝试获取当前相册列表和索引
+        album_list = None
+        current_album_index = None
+        
+        # 检查是否启用自动切换相册功能
+        if self.config_manager.get_auto_switch_album() and self.cached_scan_results:
+            album_list = [album['path'] for album in self.cached_scan_results]
+            try:
+                current_album_index = album_list.index(folder_path)
+            except ValueError:
+                # 如果当前路径不在列表中，不传递索引
+                pass
+        
+        viewer_manager.open_album(folder_path, album_list=album_list, current_album_index=current_album_index)
+    
+    def show_settings(self):
+        """显示设置对话框"""
+        try:
+            from src.ui.components.settings_dialog import SettingsDialog
+            settings_dialog = SettingsDialog(self.root, self.config_manager, self.style_manager)
+            settings_dialog.show()
+        except Exception as e:
+            print(f"打开设置对话框失败: {e}")
+            messagebox.showerror("错误", f"无法打开设置对话框: {str(e)}")
 
     def on_closing(self):
         """窗口关闭时保存配置"""

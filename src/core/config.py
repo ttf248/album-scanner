@@ -19,7 +19,9 @@ class ConfigManager:
             'window_size': '1200x800',
             'recent_albums': [],
             'favorites': [],
-            'max_recent': 10
+            'max_recent': 10,
+            'auto_switch_album': True,  # 是否启用自动切换相册
+            'show_switch_notification': True  # 是否显示切换提示
         }
         
         # 加载配置
@@ -138,3 +140,21 @@ class ConfigManager:
             self.save_config()
         
         return valid_favorites
+    
+    def get_auto_switch_album(self):
+        """获取是否启用自动切换相册"""
+        return self.config.get('auto_switch_album', True)
+    
+    def set_auto_switch_album(self, enabled):
+        """设置是否启用自动切换相册"""
+        self.config['auto_switch_album'] = enabled
+        self.save_config()
+    
+    def get_show_switch_notification(self):
+        """获取是否显示切换提示"""
+        return self.config.get('show_switch_notification', True)
+    
+    def set_show_switch_notification(self, enabled):
+        """设置是否显示切换提示"""
+        self.config['show_switch_notification'] = enabled
+        self.save_config()
