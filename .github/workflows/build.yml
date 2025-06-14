@@ -1,0 +1,48 @@
+name: Build and Package
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 设置 Python 环境（如果是 Python 项目）
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      # 安装依赖
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      # 打包为可执行文件
+      - name: Build executable
+        run: |
+          pyinstaller --onefile main.py
+
+      # 上传构建工件
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: album-scanner-exe
+          path: dist/main
+
+      # 如果是发布事件，上传到 GitHub Releases
+      - name: Upload to GitHub Releases
+        if: github.event_name == 'release'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: dist/main
+          token: ${{ secrets.GITHUB_TOKEN }}
