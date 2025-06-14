@@ -1,6 +1,6 @@
 import os
 from tkinter import messagebox
-from ...utils.image_utils import ImageProcessor
+from src.utils.image_utils import ImageProcessor
 
 class AlbumHistoryManager:
     """相册历史记录管理器"""
