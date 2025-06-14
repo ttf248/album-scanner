@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -42,10 +44,12 @@ jobs:
         with:
           name: album-scanner-${{ matrix.os }}
           path: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    permissions:
+      contents: write
 
     steps:
       # 检出代码
@@ -58,24 +62,26 @@ jobs:
         with:
           name: album-scanner-ubuntu-latest
           path: ./dist/ubuntu
-      - uses: actions/download-artifact@v4
+      
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
         with:
           name: album-scanner-windows-latest
           path: ./dist/windows
 
-      # 发布 Release（直接发布）
-      - name: Publish Release
+      # 重命名文件以便更好地识别
+      - name: Rename artifacts
         run: |
-          gh release create ${{ github.event.release.tag_name }} ./dist/ubuntu/main ./dist/windows/main.exe --repo ${{ github.repository }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            ./dist/windows/main.exe
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
+          mv ./dist/ubuntu/main ./dist/ubuntu/album-scanner-linux
+          mv ./dist/windows/main.exe ./dist/windows/album-scanner-windows.exe
+          chmod +x ./dist/ubuntu/album-scanner-linux
 
-      # 发布 Release（将草稿标记为正式发布）
-      - name: Publish Release
-        run: |
-          gh release edit ${{ github.event.release.tag_name }} --draft=false --repo ${{ github.repository }}
+      # 发布 Release 并上传文件
+      - name: Upload Release Assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            ./dist/ubuntu/album-scanner-linux \
+            ./dist/windows/album-scanner-windows.exe \
+            --repo ${{ github.repository }}
