@@ -57,18 +57,15 @@ jobs:
 
       # 打包为可执行文件 (使用优化的spec文件)
       - name: Build executable
-        env:
-          PYTHONPATH: ${{ runner.os == 'Linux' && '/opt/hostedtoolcache/Python/3.11.12/x64/lib/python3.11:/opt/hostedtoolcache/Python/3.11.12/x64/lib/python3.11/site-packages' || '' }}
         run: |
           # 显示当前目录内容用于调试
           ls -la
           # 清理之前的构建
           rm -rf build/ dist/
-          # 设置Python环境变量 (Linux)
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            export PYTHONHOME="/opt/hostedtoolcache/Python/3.11.12/x64"
-            export PYTHONPATH="/opt/hostedtoolcache/Python/3.11.12/x64/lib/python3.11:/opt/hostedtoolcache/Python/3.11.12/x64/lib/python3.11/site-packages"
-          fi
+          # 显示Python环境信息
+          python -c "import sys; print('Python executable:', sys.executable)"
+          python -c "import sys; print('Python path:', sys.path)"
+          python -c "import encodings.aliases; print('encodings.aliases imported successfully')"
           # 运行PyInstaller
           pyinstaller --clean --noconfirm album-scanner.spec
 
@@ -138,6 +135,9 @@ jobs:
           # 上传文件到 release
           gh release upload ${{ github.event.release.tag_name }} \
             ./dist/ubuntu/album-scanner-linux \
+            ./dist/windows/album-scanner-windows.exe \
+            --repo ${{ github.repository }} \
+            --clobber
             ./dist/windows/album-scanner-windows.exe \
             --repo ${{ github.repository }} \
             --clobber
