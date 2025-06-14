@@ -625,9 +625,9 @@ class AlbumGrid:
                                    lambda e, path=album_path: self.open_callback(path))
                     
                     # 封面悬停事件 - 显示预览
-                    cover_label.bind('<Enter>', 
-                                   lambda e, path=album_path, name=album_name: 
-                                   self._show_preview_window(e, path, name))
+                    # cover_label.bind('<Enter>', 
+                    #                lambda e, path=album_path, name=album_name: 
+                    #                self._show_preview_window(e, path, name))
                     cover_label.bind('<Leave>', 
                                    lambda e: self._schedule_hide_preview())
                     
