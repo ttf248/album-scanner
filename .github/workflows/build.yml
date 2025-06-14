@@ -9,14 +9,17 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       # 检出代码
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 设置 Python 环境（如果是 Python 项目）
+      # 设置 Python 环境
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -37,8 +40,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: album-scanner-exe
-          path: dist/main
+          name: album-scanner-${{ matrix.os }}
+          path: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
       # 如果是发布事件，上传到 GitHub Releases
       - name: Upload to GitHub Releases
