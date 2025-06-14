@@ -1,5 +1,5 @@
-from tkinter import filedialog, ttk, messagebox, Toplevel
-import tkinter as tk
+# 此文件已废弃 - 所有UI组件已模块化
+# 请使用: from ui.components import AlbumGrid, ImageViewer, StatusBar, StyleManager
 import os
 from ...utils.image_utils import ImageProcessor, SlideshowManager
 from PIL import Image, ImageTk

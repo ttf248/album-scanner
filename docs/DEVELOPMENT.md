@@ -132,7 +132,7 @@ pytest tests/test_album_scanner.py -v
 ```python
 # 文件名：使用下划线分隔
 album_scanner.py
-ui_components.py
+# 已移除：ui_components.py (已模块化)
 
 # 类名：使用帕斯卡命名法
 class AlbumScanner:
@@ -232,7 +232,7 @@ tests/
 ├── conftest.py              # pytest配置和fixtures
 ├── test_album_scanner.py    # 扫描器测试
 ├── test_image_utils.py      # 图片工具测试
-├── test_ui_components.py    # UI组件测试
+├── test_ui_components.py    # UI组件测试（已模块化）
 ├── test_config.py           # 配置管理测试
 ├── fixtures/                # 测试数据
 │   ├── images/              # 测试图片
@@ -301,7 +301,7 @@ class TestAlbumScanner:
 # tests/test_ui_components.py
 import tkinter as tk
 import pytest
-from ui_components import AlbumCard, ImageViewer
+from ui import AlbumGrid, ImageViewer  # 从统一入口导入
 
 class TestUIComponents:
     @pytest.fixture
@@ -311,18 +311,15 @@ class TestUIComponents:
         yield root
         root.destroy()
     
-    def test_album_card_creation(self, root):
-        """测试相册卡片创建"""
-        album_data = {
-            'name': 'Test Album',
-            'path': '/test/path',
-            'image_count': 10
-        }
+    def test_album_grid_creation(self, root):
+        """测试相册网格创建"""
+        album_data = [
+            {'name': 'Test Album', 'path': '/test/path', 'image_count': 10}
+        ]
         
-        card = AlbumCard(root, album_data)
+        grid = AlbumGrid(root, album_data)
         
-        assert card.album_name == 'Test Album'
-        assert card.image_count == 10
+        assert grid.album_count == 1
     
     def test_image_viewer_zoom(self, root):
         """测试图片查看器缩放功能"""
@@ -652,6 +649,9 @@ git push origin v2.1.0
 - **优先支持**: 优先获得技术支持
 - **学习机会**: 参与技术交流和学习
 
+---
+
+🔙 [返回主文档](README.md) | 🏗️ [架构设计](ARCHITECTURE.md) | 📋 [更新日志](CHANGELOG.md)
 ---
 
 🔙 [返回主文档](README.md) | 🏗️ [架构设计](ARCHITECTURE.md) | 📋 [更新日志](CHANGELOG.md)
