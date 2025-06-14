@@ -90,14 +90,14 @@ python main.py
 ## 📚 完整文档
 
 ### 📋 用户文档
-- 📋 [安装部署指南](INSTALLATION.md) - 详细的安装、配置和部署说明
-- ⌨️ [快捷键文档](SHORTCUTS.md) - 完整的快捷键列表和使用技巧
-- 🔧 [故障排除指南](TROUBLESHOOTING.md) - 常见问题和解决方案
+- 📋 [安装部署指南](docs/INSTALLATION.md) - 详细的安装、配置和部署说明
+- ⌨️ [快捷键文档](docs/SHORTCUTS.md) - 完整的快捷键列表和使用技巧
+- 🔧 [故障排除指南](docs/TROUBLESHOOTING.md) - 常见问题和解决方案
 
 ### 🏗️ 开发文档
-- 🏗️ [架构设计文档](ARCHITECTURE.md) - 项目架构和技术实现
-- 🚀 [开发指南](DEVELOPMENT.md) - 开发环境、贡献指南和路线图
-- 📋 [更新日志](CHANGELOG.md) - 版本历史和更新记录
+- 🏗️ [架构设计文档](docs/ARCHITECTURE.md) - 项目架构和技术实现
+- 🚀 [开发指南](docs/DEVELOPMENT.md) - 开发环境、贡献指南和路线图
+- 📋 [更新日志](docs/CHANGELOG.md) - 版本历史和更新记录
 
 ## 🤝 参与贡献
 
@@ -105,7 +105,7 @@ python main.py
 
 - 🐛 **报告问题**：[提交Issue](https://github.com/ttf248/album-scanner/issues)
 - 💡 **功能建议**：[参与讨论](https://github.com/ttf248/album-scanner/discussions)
-- 🔧 **代码贡献**：查看[开发指南](DEVELOPMENT.md)了解如何参与开发
+- 🔧 **代码贡献**：查看[开发指南](docs/DEVELOPMENT.md)了解如何参与开发
 
 ## 📄 许可证
 
