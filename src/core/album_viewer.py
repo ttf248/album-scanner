@@ -1,6 +1,6 @@
 import os
 from tkinter import messagebox, Toplevel
-from ...utils.image_utils import ImageProcessor
+from src.utils.image_utils import ImageProcessor
 from ..ui.components.image_viewer import ImageViewer  # 直接从components导入
 from ..ui.components.style_manager import get_safe_font  # 直接从components导入
 from PIL import Image, ImageTk
