@@ -21,6 +21,7 @@ class StyleManager:
     def __init__(self, root, style=None):
         self.root = root
         self.style = style
+        self.current_tooltip = None  # 跟踪当前显示的提示窗口
         
         # 现代化颜色主题 - 基于 Arc 主题的配色方案
         self.colors = {
@@ -239,23 +240,35 @@ class StyleManager:
     def add_tooltip(self, widget, text):
         """为控件添加工具提示"""
         def show_tooltip(event):
-            tooltip = tk.Toplevel()
-            tooltip.wm_overrideredirect(True)
-            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            # 如果已经有提示窗口，先销毁它
+            if self.current_tooltip:
+                try:
+                    self.current_tooltip.destroy()
+                except:
+                    pass
+                self.current_tooltip = None
             
-            label = tk.Label(tooltip, text=text,
+            # 创建新的提示窗口
+            self.current_tooltip = tk.Toplevel()
+            self.current_tooltip.wm_overrideredirect(True)
+            self.current_tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            
+            label = tk.Label(self.current_tooltip, text=text,
                            background=self.colors['text_primary'],
                            foreground=self.colors['text_white'],
                            font=self.fonts['small'],
                            relief='flat',
                            padx=8, pady=4)
             label.pack()
-            
-            # 自动隐藏
-            tooltip.after(3000, tooltip.destroy)
         
         def hide_tooltip(event):
-            pass
+            # 鼠标离开时立即销毁提示窗口
+            if self.current_tooltip:
+                try:
+                    self.current_tooltip.destroy()
+                except:
+                    pass
+                self.current_tooltip = None
         
         widget.bind('<Enter>', show_tooltip)
         widget.bind('<Leave>', hide_tooltip)
