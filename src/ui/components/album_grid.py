@@ -302,7 +302,25 @@ class AlbumGrid:
                         
                         # 加载并调整图片大小
                         from PIL import Image, ImageTk
-                        image = Image.open(first_image)
+                        
+                        # 安全地打开图片，防止解压缩炸弹攻击
+                        try:
+                            # 首先检查图片基本信息而不完全加载
+                            with Image.open(first_image) as img:
+                                # 检查图片尺寸是否合理（限制为50MP）
+                                width, height = img.size
+                                max_pixels = 50 * 1024 * 1024  # 50兆像素
+                                if width * height > max_pixels:
+                                    print(f"图片尺寸过大 ({width}x{height}={width*height} pixels)，跳过: {first_image}")
+                                    raise ValueError(f"图片尺寸超出限制: {width*height} > {max_pixels}")
+                                
+                                # 安全加载图片
+                                img.load()
+                                image = img.copy()
+                        except Exception as img_error:
+                            print(f"无法安全加载图片 {first_image}: {img_error}")
+                            # 尝试下一张图片
+                            return  # 修复: 将 continue 改为 return，因为这里不在循环中
                         
                         # 计算缩放比例，保持宽高比
                         target_size = (180, 180)
@@ -369,36 +387,49 @@ class AlbumGrid:
                             callback(target_cache[cache_key])
                             return
                         
-                        # 加载并调整图片大小
-                        with Image.open(cover_path) as img:
-                            # 创建缩略图
-                            img.thumbnail(size, Image.Resampling.LANCZOS)
-                            
-                            # 创建背景
-                            bg_color = (242, 242, 247, 255) if size[0] <= 120 else (255, 255, 255, 255)
-                            bg = Image.new('RGBA', size, bg_color)
-                            
-                            # 计算居中位置
-                            img_w, img_h = img.size
-                            x = (size[0] - img_w) // 2
-                            y = (size[1] - img_h) // 2
-                            
-                            # 确保图片有alpha通道
-                            if img.mode != 'RGBA':
-                                img = img.convert('RGBA')
-                            
-                            # 粘贴到背景上
-                            bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
-                            
-                            # 转换为PhotoImage
-                            photo = ImageTk.PhotoImage(bg)
-                            
-                            # 缓存图片
-                            target_cache[cache_key] = photo
-                            
-                            # 回调显示
-                            callback(photo)
-                            return
+                        # 安全地加载并调整图片大小
+                        try:
+                            with Image.open(cover_path) as img:
+                                # 检查图片尺寸是否合理（限制为50MP）
+                                width, height = img.size
+                                max_pixels = 50 * 1024 * 1024  # 50兆像素
+                                if width * height > max_pixels:
+                                    print(f"图片尺寸过大 ({width}x{height}={width*height} pixels)，跳过: {cover_path}")
+                                    return  # 修复: 将 continue 改为 return，因为这里不在循环中
+                                
+                                # 安全加载图片
+                                img.load()
+                                # 创建缩略图
+                                img.thumbnail(size, Image.Resampling.LANCZOS)
+                                
+                                # 创建背景
+                                bg_color = (242, 242, 247, 255) if size[0] <= 120 else (255, 255, 255, 255)
+                                bg = Image.new('RGBA', size, bg_color)
+                                
+                                # 计算居中位置
+                                img_w, img_h = img.size
+                                x = (size[0] - img_w) // 2
+                                y = (size[1] - img_h) // 2
+                                
+                                # 确保图片有alpha通道
+                                if img.mode != 'RGBA':
+                                    img = img.convert('RGBA')
+                                
+                                # 粘贴到背景上
+                                bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+                                
+                                # 转换为PhotoImage
+                                photo = ImageTk.PhotoImage(bg)
+                                
+                                # 缓存图片
+                                target_cache[cache_key] = photo
+                                
+                                # 回调显示
+                                callback(photo)
+                                return
+                        except Exception as img_error:
+                            print(f"无法安全加载图片 {cover_path}: {img_error}")
+                            return  # 修复: 将 continue 改为 return，因为这里不在循环中
                 
                 # 如果没有找到图片，返回默认图标
                 callback(None)
