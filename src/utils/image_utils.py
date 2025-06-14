@@ -283,9 +283,9 @@ class SlideshowManager:
     def set_interval(self, interval):
         """设置播放间隔"""
         self.interval = interval
-        self.image_viewer.next_image()
-        self.timer = threading.Timer(self.interval, self._next_slide)
-        self.timer.start()
+        if self.is_playing:
+            self.stop_slideshow()
+            self.start_slideshow()
     
     def set_interval(self, interval):
         """设置播放间隔"""

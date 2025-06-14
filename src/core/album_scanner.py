@@ -1,6 +1,6 @@
 from tkinter import messagebox
 from pathlib import Path
-from ...utils.image_utils import ImageProcessor
+from src.utils.image_utils import ImageProcessor
 
 class AlbumScannerService:
     """相册扫描服务"""
