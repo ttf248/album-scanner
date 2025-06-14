@@ -48,6 +48,10 @@ class AlbumScannerService:
         self.app.status_bar.set_status("未找到漫画")
         self.app.status_bar.set_info("")
         self.app.album_grid.display_albums([])
+        
+        # 清除缓存
+        self.app.cached_scan_results = None
+        self.app.cached_scan_path = None
     
     def _display_scan_results(self):
         """显示扫描结果"""
@@ -67,6 +71,7 @@ class AlbumScannerService:
                 f"找到 {len(self.app.albums)} 个漫画！\n\n"
                 "📋 浏览提示：\n"
                 "• 使用鼠标滚轮浏览所有漫画\n"
+                "• 🏠 首页按钮返回扫描结果\n"
                 "• Ctrl+R 查看最近浏览的漫画\n"
                 "• Ctrl+F 管理收藏的漫画\n"
                 "• F5 重新扫描当前文件夹")

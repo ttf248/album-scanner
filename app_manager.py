@@ -35,6 +35,11 @@ class PhotoAlbumApp:
         self.path_var = tk.StringVar(value=self.folder_path)
         self.albums = []
         
+        # 状态管理和缓存
+        self.current_view_state = "home"  # "home", "recent", "favorites"
+        self.cached_scan_results = None  # 缓存扫描结果
+        self.cached_scan_path = None     # 缓存扫描路径
+        
         # 创建UI组件
         self.create_widgets()
         
@@ -93,7 +98,9 @@ class PhotoAlbumApp:
                 favorites_callback=self.show_favorites,
                 style_manager=self.style_manager
             )
-            # NavigationBar已经在create_widgets中自动pack了
+            
+            # 设置返回首页回调
+            self.nav_bar.home_callback = self.return_to_scan_results
             
             # 创建现代化漫画网格
             self.album_grid = AlbumGrid(
@@ -184,20 +191,73 @@ class PhotoAlbumApp:
     def scan_albums(self):
         """扫描漫画"""
         from src.core.album_scanner import AlbumScannerService
+        
+        # 保存当前扫描路径
+        current_path = self.path_var.get().strip()
+        
         scanner = AlbumScannerService(self)
         scanner.scan_albums()
+        
+        # 扫描成功后缓存结果
+        if self.albums:  # 扫描成功
+            self.cached_scan_results = self.albums.copy()
+            self.cached_scan_path = current_path
+            self.current_view_state = "scan"
+            
+            # 更新面包屑
+            folder_name = os.path.basename(current_path) if current_path else "扫描结果"
+            self.nav_bar.update_breadcrumb("scan", folder_name)
     
     def show_recent_albums(self):
         """显示最近浏览的漫画"""
         from src.core.album_history import AlbumHistoryManager
+        
+        self.current_view_state = "recent"
         history_manager = AlbumHistoryManager(self)
         history_manager.show_recent_albums()
+        
+        # 更新面包屑
+        self.nav_bar.update_breadcrumb("recent")
     
     def show_favorites(self):
         """显示收藏的漫画"""
         from src.core.album_favorites import AlbumFavoritesManager
+        
+        self.current_view_state = "favorites"
         favorites_manager = AlbumFavoritesManager(self)
         favorites_manager.show_favorites()
+        
+        # 更新面包屑
+        self.nav_bar.update_breadcrumb("favorites")
+    
+    def return_to_scan_results(self):
+        """返回扫描结果首页"""
+        if self.cached_scan_results and self.cached_scan_path:
+            # 恢复缓存的扫描结果
+            self.albums = self.cached_scan_results.copy()
+            self.current_view_state = "scan"
+            
+            # 更新显示
+            self.album_grid.update_albums(self.albums)
+            
+            # 更新状态栏
+            folder_name = os.path.basename(self.cached_scan_path)
+            if len(folder_name) > 30:
+                display_name = folder_name[:27] + "..."
+            else:
+                display_name = folder_name
+            
+            total_images = sum(len(album.get('image_files', [])) for album in self.albums)
+            self.status_bar.set_status(f"扫描结果: {display_name} ({len(self.albums)} 个漫画)", "success")
+            self.status_bar.set_info(f"共 {total_images} 张图片")
+            
+            # 更新面包屑
+            self.nav_bar.update_breadcrumb("scan", folder_name)
+        else:
+            # 没有缓存，提示用户扫描
+            self.status_bar.set_status("请先扫描漫画文件夹", "warning")
+            self.album_grid.show_empty_state()
+            self.nav_bar.update_breadcrumb("home")
     
     def toggle_favorite(self, album_path):
         """切换收藏状态"""
@@ -212,6 +272,10 @@ class PhotoAlbumApp:
         if self.albums:
             self.album_grid.update_albums(self.albums)
             
+            # 如果在收藏视图中，需要重新加载收藏列表
+            if self.current_view_state == "favorites":
+                self.show_favorites()
+    
     def open_album(self, folder_path):
         """打开漫画查看"""
         from src.core.album_viewer import AlbumViewerManager

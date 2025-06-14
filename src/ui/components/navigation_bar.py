@@ -13,6 +13,9 @@ class NavigationBar:
         self.recent_callback = recent_callback
         self.favorites_callback = favorites_callback
         
+        # 新增回调
+        self.home_callback = None  # 将由app_manager设置
+        
         # 使用传入的样式管理器或创建新实例
         if style_manager:
             self.style_manager = style_manager
@@ -28,7 +31,7 @@ class NavigationBar:
         # 导航栏主框架 - 使用卡片样式
         self.nav_frame = tk.Frame(self.parent, 
                                 bg=self.style_manager.colors['card_bg'], 
-                                height=100,
+                                height=120,  # 增加高度以容纳面包屑
                                 relief='flat',
                                 bd=1)
         self.nav_frame.pack(side='top', fill='x', padx=16, pady=(16, 8))
@@ -39,6 +42,13 @@ class NavigationBar:
         content_frame.pack(fill='both', expand=True, 
                           padx=self.style_manager.dimensions['padding_xl'], 
                           pady=self.style_manager.dimensions['padding_lg'])
+        
+        # 面包屑导航区域
+        self.breadcrumb_frame = tk.Frame(content_frame, bg=self.style_manager.colors['card_bg'])
+        self.breadcrumb_frame.pack(side='top', fill='x', pady=(0, 8))
+        
+        # 创建面包屑导航
+        self.create_breadcrumb()
         
         # 顶部按钮区域
         button_frame = tk.Frame(content_frame, bg=self.style_manager.colors['card_bg'])
@@ -53,6 +63,64 @@ class NavigationBar:
         
         # 路径标签和显示
         self.create_path_display(path_frame)
+    
+    def create_breadcrumb(self):
+        """创建面包屑导航"""
+        # 清空现有面包屑
+        for widget in self.breadcrumb_frame.winfo_children():
+            widget.destroy()
+        
+        # 面包屑容器
+        breadcrumb_container = tk.Frame(self.breadcrumb_frame, bg=self.style_manager.colors['card_bg'])
+        breadcrumb_container.pack(side='left')
+        
+        # 首页按钮
+        home_btn = tk.Button(breadcrumb_container,
+                           text="🏠 首页",
+                           command=self.go_home,
+                           font=self.style_manager.fonts['caption'],
+                           bg=self.style_manager.colors['card_bg'],
+                           fg=self.style_manager.colors['accent'],
+                           relief='flat',
+                           borderwidth=0,
+                           padx=8,
+                           pady=4,
+                           cursor='hand2')
+        home_btn.pack(side='left')
+        
+        self.style_manager.create_hover_effect(
+            home_btn,
+            self.style_manager.colors['accent_light'],
+            self.style_manager.colors['card_bg']
+        )
+        self.style_manager.add_tooltip(home_btn, "返回扫描结果首页")
+        
+        # 分隔符和当前位置将由update_breadcrumb动态更新
+        self.current_location_label = tk.Label(breadcrumb_container,
+                                             text="",
+                                             font=self.style_manager.fonts['caption'],
+                                             bg=self.style_manager.colors['card_bg'],
+                                             fg=self.style_manager.colors['text_secondary'])
+        self.current_location_label.pack(side='left', padx=(4, 0))
+    
+    def update_breadcrumb(self, location_type="home", location_name=""):
+        """更新面包屑显示"""
+        if location_type == "home":
+            self.current_location_label.configure(text="")
+        elif location_type == "recent":
+            self.current_location_label.configure(text=" > 📝 最近浏览")
+        elif location_type == "favorites":
+            self.current_location_label.configure(text=" > ⭐ 我的收藏")
+        elif location_type == "scan":
+            folder_name = location_name or "扫描结果"
+            if len(folder_name) > 20:
+                folder_name = folder_name[:17] + "..."
+            self.current_location_label.configure(text=f" > 📁 {folder_name}")
+    
+    def go_home(self):
+        """返回首页（扫描结果）"""
+        if self.home_callback:
+            self.home_callback()
     
     def create_modern_buttons(self, parent):
         """创建现代化导航按钮"""
