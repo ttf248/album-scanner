@@ -311,11 +311,20 @@ class PhotoAlbumApp:
             messagebox.showerror("错误", f"无法打开设置对话框: {str(e)}")
 
     def on_closing(self):
-        """窗口关闭时保存配置"""
+        """窗口关闭时保存配置并清理资源"""
         try:
             # 保存窗口大小
             self.config_manager.config['window_size'] = self.root.geometry()
             self.config_manager.save_config()
+            
+            # 清理图片缓存
+            try:
+                from src.utils.image_cache import get_image_cache
+                cache = get_image_cache()
+                cache.shutdown()
+            except Exception as e:
+                print(f"清理图片缓存时出错: {e}")
+            
         except Exception as e:
             print(f"保存配置时发生错误: {e}")
         finally:

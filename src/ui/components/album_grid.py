@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox, Toplevel
 import os
 from ...utils.image_utils import ImageProcessor, SlideshowManager
+from ...utils.image_cache import get_image_cache
 from PIL import Image, ImageTk
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -27,14 +28,21 @@ class AlbumGrid:
             style = ttk.Style()
             self.style_manager = StyleManager(parent, style)
         
-        # 封面缓存
-        self.cover_cache = {}  # 缓存封面图片
-        self.large_cover_cache = {}  # 缓存大尺寸封面图片
-        self.executor = ThreadPoolExecutor(max_workers=3)  # 线程池用于异步加载封面
+        # 使用全局图片缓存
+        self.image_cache = get_image_cache()
         
-        # 浮动预览框
+        # 移除旧的缓存和线程池
+        # self.cover_cache = {}
+        # self.large_cover_cache = {}
+        # self.executor = ThreadPoolExecutor(max_workers=3)
+        
+        # 简化预览功能 - 减少复杂度
         self.preview_window = None
         self.preview_timer = None
+        
+        # 防抖动布局参数
+        self.layout_timer = None
+        self.layout_delay = 300  # 300ms防抖
         
         # 现代化布局参数 - 优化为更大的卡片和瀑布流
         self.columns = 2  # 默认列数，会根据窗口大小动态调整
@@ -98,7 +106,7 @@ class AlbumGrid:
             # 绑定鼠标滚轮事件 - 改进滚动体验
             self._bind_mousewheel()
             
-            # 绑定窗口大小变化事件 - 实现响应式瀑布流
+            # 绑定窗口大小变化事件 - 实现响应式瀑布流（使用防抖）
             self._bind_resize_events()
             
         except Exception as e:
@@ -131,19 +139,22 @@ class AlbumGrid:
             self.canvas.bind('<Leave>', _unbind_from_mousewheel)
     
     def _bind_resize_events(self):
-        """绑定窗口大小变化事件"""
+        """绑定窗口大小变化事件 - 使用防抖"""
         def _on_canvas_resize(event):
-            # 延迟重新布局，避免频繁调用
-            if hasattr(self, '_resize_timer'):
-                self.parent.after_cancel(self._resize_timer)
-            self._resize_timer = self.parent.after(200, self._relayout_albums)
+            # 取消之前的定时器
+            if self.layout_timer:
+                self.parent.after_cancel(self.layout_timer)
+            
+            # 设置新的防抖定时器
+            self.layout_timer = self.parent.after(self.layout_delay, self._relayout_albums)
         
         if self.canvas:
             self.canvas.bind('<Configure>', _on_canvas_resize)
     
     def _relayout_albums(self):
-        """重新布局漫画卡片"""
+        """重新布局漫画卡片（防抖后执行）"""
         try:
+            self.layout_timer = None  # 清除定时器引用
             if hasattr(self, 'albums') and self.albums:
                 self._create_modern_album_cards(self.albums)
         except Exception as e:
@@ -273,6 +284,10 @@ class AlbumGrid:
         """显示空状态（兼容旧方法）"""
         self.show_empty_state()
     
+    def display_albums(self, albums):
+        """显示漫画（兼容性方法）"""
+        self.update_albums(albums)
+    
     def update_albums(self, albums):
         """更新漫画显示"""
         try:
@@ -299,373 +314,185 @@ class AlbumGrid:
             traceback.print_exc()
     
     def _load_cover_async(self, album_path, cover_label):
-        """异步加载封面图片"""
+        """异步加载封面图片 - 使用新的缓存系统"""
         try:
-            # 检查缓存
-            if album_path in self.cover_cache:
-                photo = self.cover_cache[album_path]
-                self._update_cover_image(cover_label, photo)
+            # 查找漫画中的第一张图片
+            import glob
+            image_files = []
+            for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+                pattern = os.path.join(album_path, f'*{ext}')
+                image_files.extend(glob.glob(pattern))
+                pattern = os.path.join(album_path, f'*{ext.upper()}')
+                image_files.extend(glob.glob(pattern))
+            
+            if not image_files:
+                # 没有图片时显示文件夹图标
+                cover_label.configure(
+                    text='📁\n空漫画', 
+                    font=self.style_manager.fonts['body'],
+                    fg=self.style_manager.colors['text_tertiary']
+                )
                 return
             
-            # 在后台线程中加载封面
-            def load_cover():
+            # 按文件名排序，取第一张
+            image_files.sort()
+            first_image = image_files[0]
+            
+            # 使用缓存系统异步加载
+            target_size = (210, 280)  # 3:4 竖屏比例
+            
+            def on_success(photo):
+                """加载成功回调"""
                 try:
-                    # 获取漫画中的第一张图片
-                    import glob
-                    image_files = []
-                    for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
-                        pattern = os.path.join(album_path, f'*{ext}')
-                        image_files.extend(glob.glob(pattern))
-                        pattern = os.path.join(album_path, f'*{ext.upper()}')
-                        image_files.extend(glob.glob(pattern))
-                    
-                    if image_files:
-                        # 按文件名排序，取第一张
-                        image_files.sort()
-                        first_image = image_files[0]
-                        
-                        # 加载并调整图片大小
-                        from PIL import Image, ImageTk
-                        
-                        # 安全地打开图片，防止解压缩炸弹攻击
-                        try:
-                            # 首先检查图片基本信息而不完全加载
-                            with Image.open(first_image) as img:
-                                # 检查图片尺寸是否合理（限制为50MP）
-                                width, height = img.size
-                                max_pixels = 50 * 1024 * 1024  # 50兆像素
-                                if width * height > max_pixels:
-                                    print(f"图片尺寸过大 ({width}x{height}={width*height} pixels)，跳过: {first_image}")
-                                    raise ValueError(f"图片尺寸超出限制: {width*height} > {max_pixels}")
-                                
-                                # 安全加载图片
-                                img.load()
-                                image = img.copy()
-                        except Exception as img_error:
-                            print(f"无法安全加载图片 {first_image}: {img_error}")
-                            # 尝试下一张图片
-                            return  # 修复: 将 continue 改为 return，因为这里不在循环中
-                        
-                        # 计算缩放比例，保持宽高比 - 使用竖屏比例
-                        target_size = (210, 280)  # 3:4 竖屏比例
-                        image.thumbnail(target_size, Image.Resampling.LANCZOS)
-                        
-                        # 转换为PhotoImage
-                        photo = ImageTk.PhotoImage(image)
-                        
-                        # 缓存图片
-                        self.cover_cache[album_path] = photo
-                        
-                        # 在主线程中更新UI
-                        cover_label.after(0, lambda: self._update_cover_image(cover_label, photo))
-                    else:
-                        # 没有图片时显示文件夹图标
-                        cover_label.after(0, lambda: cover_label.configure(
-                            text='📁\n空漫画', 
-                            font=self.style_manager.fonts['body'],
-                            fg=self.style_manager.colors['text_tertiary']
-                        ))
-                        
+                    if cover_label.winfo_exists():
+                        cover_label.configure(image=photo, text='')
+                        cover_label.image = photo  # 保持引用
                 except Exception as e:
-                    print(f"加载封面图片失败: {e}")
-                    # 显示错误状态
-                    cover_label.after(0, lambda: cover_label.configure(
-                        text='❌\n加载失败', 
-                        font=self.style_manager.fonts['body'],
-                        fg=self.style_manager.colors['error']
-                    ))
+                    print(f"更新封面图片失败: {e}")
             
-            # 在线程池中执行
-            import threading
-            thread = threading.Thread(target=load_cover, daemon=True)
-            thread.start()
+            def on_error(error):
+                """加载失败回调"""
+                try:
+                    if cover_label.winfo_exists():
+                        cover_label.configure(
+                            text='❌\n加载失败', 
+                            font=self.style_manager.fonts['body'],
+                            fg=self.style_manager.colors['error']
+                        )
+                except Exception as e:
+                    print(f"更新错误状态失败: {e}")
             
+            # 异步加载图片
+            self.image_cache.load_image_async(
+                first_image, 
+                target_size, 
+                cover_label, 
+                on_success, 
+                on_error
+            )
+                        
         except Exception as e:
-            print(f"启动封面加载线程失败: {e}")
-    
-    def _update_cover_image(self, label, photo):
-        """更新封面图片"""
-        try:
-            label.configure(image=photo, text='')
-            label.image = photo  # 保持引用
-        except Exception as e:
-            print(f"更新封面图片失败: {e}")
-        
-    def _load_cover_image(self, album_path, callback, size=(320, 350)):
-        """异步加载封面图片"""
-        def load_cover():
+            print(f"启动封面加载失败: {e}")
             try:
-                # 查找漫画中的第一张图片作为封面
-                image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
-                
-                for file in os.listdir(album_path):
-                    if any(file.lower().endswith(ext) for ext in image_extensions):
-                        cover_path = os.path.join(album_path, file)
-                        
-                        # 根据尺寸选择缓存
-                        cache_key = f"{cover_path}_{size[0]}x{size[1]}"
-                        target_cache = self.large_cover_cache if size[0] > 320 else self.cover_cache
-                        
-                        # 检查缓存
-                        if cache_key in target_cache:
-                            callback(target_cache[cache_key])
-                            return
-                        
-                        # 安全地加载并调整图片大小
-                        try:
-                            with Image.open(cover_path) as img:
-                                # 检查图片尺寸是否合理（限制为50MP）
-                                width, height = img.size
-                                max_pixels = 50 * 1024 * 1024  # 50兆像素
-                                if width * height > max_pixels:
-                                    print(f"图片尺寸过大 ({width}x{height}={width*height} pixels)，跳过: {cover_path}")
-                                    return
-                                
-                                # 安全加载图片
-                                img.load()
-                                
-                                # 直接使用传入的尺寸参数创建缩略图
-                                img.thumbnail(size, Image.Resampling.LANCZOS)
-                                
-                                # 创建背景
-                                bg_color = (255, 255, 255, 255)
-                                bg = Image.new('RGBA', size, bg_color)
-                                
-                                # 计算居中位置
-                                img_w, img_h = img.size
-                                x = (size[0] - img_w) // 2
-                                y = (size[1] - img_h) // 2
-                                
-                                # 确保图片有alpha通道
-                                if img.mode != 'RGBA':
-                                    img = img.convert('RGBA')
-                                
-                                # 粘贴到背景上
-                                bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
-                                
-                                # 转换为PhotoImage
-                                photo = ImageTk.PhotoImage(bg)
-                                
-                                # 缓存图片
-                                target_cache[cache_key] = photo
-                                
-                                # 回调显示
-                                callback(photo)
-                                return
-                        except Exception as img_error:
-                            print(f"无法安全加载图片 {cover_path}: {img_error}")
-                            return
-                
-                # 如果没有找到图片，返回默认图标
+                cover_label.configure(
+                    text='❌\n加载失败', 
+                    font=self.style_manager.fonts['body'],
+                    fg=self.style_manager.colors['error']
+                )
+            except:
+                pass
+    
+    def _load_cover_image(self, album_path, callback, size=(320, 350)):
+        """异步加载封面图片 - 重构为使用新缓存系统"""
+        try:
+            # 查找漫画中的第一张图片作为封面
+            image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
+            
+            image_file = None
+            for file in os.listdir(album_path):
+                if any(file.lower().endswith(ext) for ext in image_extensions):
+                    image_file = os.path.join(album_path, file)
+                    break
+            
+            if not image_file:
                 callback(None)
-                
-            except Exception as e:
-                print(f"加载封面失败 {album_path}: {e}")
+                return
+            
+            def on_success(photo):
+                callback(photo)
+            
+            def on_error(error):
+                print(f"加载封面失败 {album_path}: {error}")
                 callback(None)
-        
-        # 在线程池中执行
-        self.executor.submit(load_cover)
+            
+            # 使用缓存系统异步加载 - 需要一个widget来执行回调
+            # 这里使用parent作为widget
+            self.image_cache.load_image_async(
+                image_file,
+                size,
+                self.parent,
+                on_success,
+                on_error
+            )
+                
+        except Exception as e:
+            print(f"查找封面图片失败 {album_path}: {e}")
+            callback(None)
     
     def _show_preview_window(self, event, album_path, album_name):
-        """显示预览浮动窗口"""
+        """显示预览浮动窗口 - 简化版本减少卡顿"""
         try:
-            # 立即清理之前的预览窗口和所有定时器
+            # 立即清理之前的预览窗口
             self._hide_preview_window()
             
-            # 延迟显示预览窗口（避免鼠标快速移动时频繁弹出）
-            self.preview_timer = self.parent.after(500, 
-                lambda: self._create_preview_window(event, album_path, album_name))
+            # 增加延迟时间，减少频繁弹出
+            self.preview_timer = self.parent.after(800,  # 从500ms增加到800ms
+                lambda: self._create_simple_preview_window(event, album_path, album_name))
             
         except Exception as e:
             print(f"显示预览窗口时出错: {e}")
     
-    def _create_preview_window(self, event, album_path, album_name):
-        """创建预览浮动窗口"""
+    def _create_simple_preview_window(self, event, album_path, album_name):
+        """创建简化版预览窗口 - 减少复杂度"""
         try:
             # 再次确保没有现有窗口
             if self.preview_window and self.preview_window.winfo_exists():
                 self.preview_window.destroy()
                 self.preview_window = None
             
-            # 创建顶层窗口
+            # 创建简化的预览窗口
             self.preview_window = tk.Toplevel(self.parent)
             self.preview_window.withdraw()  # 先隐藏
             
             # 设置窗口属性
             self.preview_window.overrideredirect(True)  # 无边框
-            self.preview_window.configure(bg='white', relief='solid', bd=2)
-            
-            # 设置窗口在最顶层
+            self.preview_window.configure(bg='white', relief='solid', bd=1)
             self.preview_window.attributes('-topmost', True)
             
-            # 创建内容框架
-            content_frame = tk.Frame(self.preview_window, bg='white', padx=12, pady=12)
+            # 简化内容 - 只显示基本信息
+            content_frame = tk.Frame(self.preview_window, bg='white', padx=8, pady=8)
             content_frame.pack()
             
-            # 标题
+            # 只显示标题，不加载大图片
             title_label = tk.Label(content_frame, text=album_name,
-                                 font=get_safe_font('Arial', 12, 'bold'),
+                                 font=get_safe_font('Arial', 11, 'bold'),
                                  bg='white', fg='black')
-            title_label.pack(pady=(0, 8))
+            title_label.pack()
             
-            # 封面占位符 - 更大的竖屏尺寸 (270x360)
-            self.preview_cover_label = tk.Label(content_frame, text="🔄 加载中...",
-                                              font=get_safe_font('Arial', 16),
-                                              bg='#F2F2F7', fg='#8E8E93',
-                                              width=270, height=360)
-            self.preview_cover_label.pack()
+            # 简单的提示文字，而不是图片
+            hint_label = tk.Label(content_frame, text="🖼️ 点击查看详情",
+                                font=get_safe_font('Arial', 9),
+                                bg='white', fg='gray')
+            hint_label.pack(pady=4)
             
-            # 计算窗口位置（跟随鼠标，但避免超出屏幕）
+            # 计算位置
             x = event.x_root + 15
             y = event.y_root + 15
             
-            # 获取屏幕尺寸
+            # 简单的边界检查
             screen_width = self.preview_window.winfo_screenwidth()
             screen_height = self.preview_window.winfo_screenheight()
             
-            # 预估窗口大小 - 适应更大的封面尺寸
-            window_width = 310
-            window_height = 420
+            window_width = 200  # 简化后的窗口更小
+            window_height = 80
             
-            # 调整位置避免超出屏幕
             if x + window_width > screen_width:
                 x = event.x_root - window_width - 15
             if y + window_height > screen_height:
                 y = event.y_root - window_height - 15
             
-            # 设置窗口位置
             self.preview_window.geometry(f"+{x}+{y}")
-            
-            # 显示窗口
             self.preview_window.deiconify()
             
-            # 异步加载竖屏尺寸封面 - 更大尺寸
-            self._load_cover_image(album_path, 
-                                 lambda photo: self._update_preview_cover(photo),
-                                 size=(270, 360))
-            
-            # 绑定鼠标离开事件
-            self._bind_preview_events()
+            # 简化事件绑定
+            self.preview_window.bind('<Leave>', lambda e: self._schedule_hide_preview())
             
         except Exception as e:
-            print(f"创建预览窗口时出错: {e}")
+            print(f"创建简化预览窗口时出错: {e}")
             self._hide_preview_window()
     
-    def _update_preview_cover(self, photo):
-        """更新预览窗口的封面"""
-        try:
-            if (photo and self.preview_window and 
-                self.preview_window.winfo_exists() and 
-                hasattr(self, 'preview_cover_label') and 
-                self.preview_cover_label.winfo_exists()):
-                
-                self.preview_cover_label.configure(image=photo, text="")
-                self.preview_cover_label.image = photo  # 保持引用
-                
-        except Exception as e:
-            print(f"更新预览封面时出错: {e}")
-    
-    def _bind_preview_events(self):
-        """绑定预览窗口事件"""
-        try:
-            if self.preview_window and self.preview_window.winfo_exists():
-                # 鼠标进入预览窗口时保持显示
-                self.preview_window.bind('<Enter>', self._on_preview_enter)
-                # 鼠标离开预览窗口时隐藏
-                self.preview_window.bind('<Leave>', self._on_preview_leave)
-                
-                # 为预览窗口内的所有组件绑定事件
-                for widget in self.preview_window.winfo_children():
-                    self._bind_widget_events(widget)
-                    
-        except Exception as e:
-            print(f"绑定预览事件时出错: {e}")
-    
-    def _bind_widget_events(self, widget):
-        """递归绑定组件事件"""
-        try:
-            widget.bind('<Enter>', self._on_preview_enter)
-            widget.bind('<Leave>', self._on_preview_leave)
-            
-            # 递归绑定子组件
-            for child in widget.winfo_children():
-                self._bind_widget_events(child)
-                
-        except Exception as e:
-            print(f"绑定组件事件时出错: {e}")
-    
-    def _on_preview_enter(self, event):
-        """鼠标进入预览窗口"""
-        # 取消隐藏定时器
-        if self.preview_timer:
-            self.parent.after_cancel(self.preview_timer)
-            self.preview_timer = None
-    
-    def _on_preview_leave(self, event):
-        """鼠标离开预览窗口"""
-        # 延迟隐藏窗口（给用户时间移动鼠标回来）
-        self.preview_timer = self.parent.after(300, self._hide_preview_window)
-    
-    def _hide_preview_window(self):
-        """隐藏预览窗口"""
-        try:
-            # 取消所有相关定时器
-            if self.preview_timer:
-                self.parent.after_cancel(self.preview_timer)
-                self.preview_timer = None
-                
-            # 销毁预览窗口
-            if self.preview_window:
-                try:
-                    if self.preview_window.winfo_exists():
-                        self.preview_window.destroy()
-                except tk.TclError:
-                    # 窗口已经被销毁
-                    pass
-                finally:
-                    self.preview_window = None
-                    
-            # 清理预览封面标签引用
-            if hasattr(self, 'preview_cover_label'):
-                self.preview_cover_label = None
-                
-        except Exception as e:
-            print(f"隐藏预览窗口时出错: {e}")
-
-    def display_albums(self, albums):
-        """显示漫画（带滚动支持和封面）"""
-        try:
-            # 确保组件存在
-            if not hasattr(self, 'scrollable_frame') or self.scrollable_frame is None:
-                print("scrollable_frame不存在，重新创建")
-                self.create_widgets()
-                
-            # 清除现有内容
-            for widget in self.scrollable_frame.winfo_children():
-                widget.destroy()
-            
-            if not albums or len(albums) == 0:
-                # 显示空状态
-                self.show_empty_state()
-                return
-            
-            # 隐藏空状态
-            self.hide_empty_state()
-            
-            # 隐藏导航栏的启动页（如果存在）
-            if hasattr(self, 'nav_bar') and self.nav_bar and hasattr(self.nav_bar, 'hide_start_page'):
-                self.nav_bar.hide_start_page()
-            
-            # 创建现代化漫画卡片
-            self._create_modern_album_cards(albums)
-                
-        except Exception as e:
-            print(f"显示漫画列表时出错: {e}")
-            # 创建最基本的显示
-            self._create_fallback_display(albums)
-    
     def _create_modern_album_cards(self, albums):
-        """创建现代化漫画卡片"""
+        """创建现代化漫画卡片 - 优化性能"""
         try:
             if not self.scrollable_frame:
                 return
@@ -682,11 +509,16 @@ class AlbumGrid:
                 # 窗口尚未完全初始化时使用默认值
                 self.columns = 2
             
+            # 清空现有内容 - 批量操作减少重绘
+            for widget in self.scrollable_frame.winfo_children():
+                widget.destroy()
+            
             # 创建网格容器
             grid_container = tk.Frame(self.scrollable_frame, bg=self.style_manager.colors['bg_primary'])
             grid_container.pack(fill='both', expand=True, padx=self.card_spacing, pady=self.card_spacing)
             
-            # 创建漫画卡片
+            # 批量创建卡片 - 减少单次操作
+            cards_to_create = []
             for i, album in enumerate(albums):
                 try:
                     # 验证漫画数据完整性
@@ -703,28 +535,49 @@ class AlbumGrid:
                     row = i // self.columns
                     col = i % self.columns
                     
-                    card = self._create_modern_album_card(grid_container, album)
-                    card.grid(row=row, column=col, 
-                             padx=self.card_spacing//2, 
-                             pady=self.card_spacing//2, 
-                             sticky='nsew')
+                    cards_to_create.append((i, album, row, col))
                         
                 except Exception as e:
-                    print(f"显示漫画项时出错 {i}: {e}")
+                    print(f"准备漫画项时出错 {i}: {e}")
                     continue
             
-            # 配置网格权重
-            for i in range(self.columns):
-                grid_container.grid_columnconfigure(i, weight=1)
-            
-            # 更新滚动区域
-            self.scrollable_frame.update_idletasks()
-            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            # 分批创建卡片，减少UI阻塞
+            self._create_cards_batch(grid_container, cards_to_create, 0)
                 
         except Exception as e:
             print(f"创建漫画卡片时出错: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _create_cards_batch(self, grid_container, cards_to_create, start_index, batch_size=5):
+        """分批创建卡片，避免UI阻塞"""
+        try:
+            end_index = min(start_index + batch_size, len(cards_to_create))
+            
+            for i in range(start_index, end_index):
+                album_index, album, row, col = cards_to_create[i]
+                
+                card = self._create_modern_album_card(grid_container, album)
+                card.grid(row=row, column=col, 
+                         padx=self.card_spacing//2, 
+                         pady=self.card_spacing//2, 
+                         sticky='nsew')
+            
+            # 如果还有更多卡片要创建，安排下一批
+            if end_index < len(cards_to_create):
+                self.parent.after(10, lambda: self._create_cards_batch(
+                    grid_container, cards_to_create, end_index, batch_size))
+            else:
+                # 所有卡片创建完成，配置网格权重
+                for i in range(self.columns):
+                    grid_container.grid_columnconfigure(i, weight=1)
+                
+                # 更新滚动区域
+                self.scrollable_frame.update_idletasks()
+                self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+                
+        except Exception as e:
+            print(f"分批创建卡片时出错: {e}")
     
     def _create_modern_album_card(self, parent, album):
         """创建现代化单个漫画卡片"""
@@ -1030,7 +883,15 @@ class AlbumGrid:
             # 清理预览窗口
             self._hide_preview_window()
             
-            if hasattr(self, 'executor'):
-                self.executor.shutdown(wait=False)
+            # 取消防抖定时器
+            if hasattr(self, 'layout_timer') and self.layout_timer:
+                try:
+                    self.parent.after_cancel(self.layout_timer)
+                except:
+                    pass
+            
+            # 注意：不再管理executor，因为使用的是全局缓存
+            # if hasattr(self, 'executor'):
+            #     self.executor.shutdown(wait=False)
         except:
             pass

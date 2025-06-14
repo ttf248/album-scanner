@@ -59,8 +59,13 @@ class FallbackUIManager:
                 # 确保有grid_frame属性以保持兼容性
                 self.grid_frame = self.display_frame
                 log_info("创建基础漫画显示组件", 'ui.fallback')
-                
+            
             def display_albums(self, albums):
+                """显示漫画列表（兼容性方法）"""
+                self.update_albums(albums)
+            
+            def update_albums(self, albums):
+                """更新漫画显示"""
                 try:
                     # 清除现有内容
                     for widget in self.display_frame.winfo_children():
@@ -97,7 +102,7 @@ class FallbackUIManager:
                     
                     log_info(f"成功显示 {len(albums)} 个漫画", 'ui.fallback')
                 except Exception as e:
-                    log_exception(f"BasicAlbumDisplay.display_albums出错: {e}", 'ui.fallback')
+                    log_exception(f"BasicAlbumDisplay.update_albums出错: {e}", 'ui.fallback')
         
         return BasicAlbumDisplay(parent)
     
