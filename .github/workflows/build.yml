@@ -33,17 +33,44 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      # 打包为可执行文件
+      # 安装UPX压缩工具 (Windows)
+      - name: Install UPX (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install upx -y
+
+      # 安装UPX压缩工具 (Linux)
+      - name: Install UPX (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y upx
+
+      # 打包为可执行文件 (使用优化的spec文件)
       - name: Build executable
         run: |
-          pyinstaller --onefile main.py
+          pyinstaller --clean --noconfirm album-scanner.spec
+
+      # 进一步压缩可执行文件 (Windows)
+      - name: Compress executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          upx --best --lzma dist/album-scanner.exe
+        continue-on-error: true
+
+      # 进一步压缩可执行文件 (Linux)
+      - name: Compress executable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          upx --best --lzma dist/album-scanner
+        continue-on-error: true
 
       # 上传构建工件
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: album-scanner-${{ matrix.os }}
-          path: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          path: dist/album-scanner${{ matrix.os == 'windows-latest' && '.exe' || '' }}
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -72,8 +99,8 @@ jobs:
       # 重命名文件以便更好地识别
       - name: Rename artifacts
         run: |
-          mv ./dist/ubuntu/main ./dist/ubuntu/album-scanner-linux
-          mv ./dist/windows/main.exe ./dist/windows/album-scanner-windows.exe
+          mv ./dist/ubuntu/album-scanner ./dist/ubuntu/album-scanner-linux
+          mv ./dist/windows/album-scanner.exe ./dist/windows/album-scanner-windows.exe
           chmod +x ./dist/ubuntu/album-scanner-linux
 
       # 发布 Release 并上传文件
