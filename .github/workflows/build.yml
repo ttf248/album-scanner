@@ -43,18 +43,38 @@ jobs:
           name: album-scanner-${{ matrix.os }}
           path: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
-      # 如果是发布事件，创建草稿 Release
-      - name: Create Draft Release
-        if: github.event_name == 'release'
-        uses: ncipollo/release-action@v1
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 下载构建工件
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          artifacts: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          name: album-scanner-ubuntu-latest
+          path: ./dist/ubuntu
+      - uses: actions/download-artifact@v4
+        with:
+          name: album-scanner-windows-latest
+          path: ./dist/windows
+
+      # 发布 Release（直接发布）
+      - name: Publish Release
+        run: |
+          gh release create ${{ github.event.release.tag_name }} ./dist/ubuntu/main ./dist/windows/main.exe --repo ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            ./dist/windows/main.exe
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
 
       # 发布 Release（将草稿标记为正式发布）
       - name: Publish Release
-        if: github.event_name == 'release'
         run: |
           gh release edit ${{ github.event.release.tag_name }} --draft=false --repo ${{ github.repository }}
         env:
