@@ -16,7 +16,7 @@ class FallbackUIManager:
         top_frame.pack(fill='x', padx=10, pady=5)
         
         # 路径输入
-        tk.Label(top_frame, text="相册路径:", bg='lightgray').pack(side='left')
+        tk.Label(top_frame, text="漫画路径:", bg='lightgray').pack(side='left')
         path_entry = tk.Entry(top_frame, textvariable=self.app.path_var, width=50)
         path_entry.pack(side='left', padx=5)
         
@@ -30,13 +30,13 @@ class FallbackUIManager:
         main_frame = tk.Frame(self.app.root, bg='white')
         main_frame.pack(fill='both', expand=True, padx=10, pady=5)
         
-        # 创建简单的相册网格
+        # 创建简单的漫画网格
         try:
             from .components.album_grid import AlbumGrid  # 从components导入
             self.app.album_grid = AlbumGrid(main_frame, self.app.open_album, self.app.toggle_favorite)
             self.app.album_grid.is_favorite = self.app.config_manager.is_favorite
         except Exception as e:
-            print(f"创建简化相册网格时出错: {e}")
+            print(f"创建简化漫画网格时出错: {e}")
             import traceback
             traceback.print_exc()
             # 创建最基本的显示
@@ -46,7 +46,7 @@ class FallbackUIManager:
         self._create_simple_status_bar()
     
     def _create_basic_album_display(self, parent):
-        """创建最基本的相册显示"""
+        """创建最基本的漫画显示"""
         app_instance = self.app  # 保存对主应用的引用
         
         class BasicAlbumDisplay:
@@ -64,7 +64,7 @@ class FallbackUIManager:
                         widget.destroy()
                     
                     if not albums or len(albums) == 0:
-                        tk.Label(self.display_frame, text="暂无相册", 
+                        tk.Label(self.display_frame, text="暂无漫画", 
                                bg='white', fg='gray').pack(expand=True)
                         return
                     
@@ -74,8 +74,8 @@ class FallbackUIManager:
                             frame = tk.Frame(self.display_frame, bg='lightblue', relief='raised', bd=1)
                             frame.pack(fill='x', padx=5, pady=2)
                             
-                            # 确保相册信息完整
-                            album_name = album.get('name', '未知相册')
+                            # 确保漫画信息完整
+                            album_name = album.get('name', '未知漫画')
                             image_count = album.get('image_count', 0)
                             album_path = album.get('path', '')
                             
@@ -86,7 +86,7 @@ class FallbackUIManager:
                                 tk.Button(frame, text="打开", 
                                         command=lambda p=album_path: app_instance.open_album(p)).pack(side='right', padx=5)
                         except Exception as e:
-                            print(f"显示相册时出错: {e}")
+                            print(f"显示漫画时出错: {e}")
                             continue
                 except Exception as e:
                     print(f"BasicAlbumDisplay.display_albums出错: {e}")

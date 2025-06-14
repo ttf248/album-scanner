@@ -10,7 +10,7 @@ from .status_bar import StatusBar
 
 
 class AlbumGrid:
-    """现代化相册网格组件 - 卡片式瀑布流布局"""
+    """现代化漫画网格组件 - 卡片式瀑布流布局"""
     
     def __init__(self, parent, open_callback, favorite_callback, style_manager=None):
         self.parent = parent
@@ -142,12 +142,12 @@ class AlbumGrid:
             self.canvas.bind('<Configure>', _on_canvas_resize)
     
     def _relayout_albums(self):
-        """重新布局相册卡片"""
+        """重新布局漫画卡片"""
         try:
             if hasattr(self, 'albums') and self.albums:
                 self._create_modern_album_cards(self.albums)
         except Exception as e:
-            print(f"重新布局相册时出错: {e}")
+            print(f"重新布局漫画时出错: {e}")
     
     def create_empty_state(self):
         """创建空状态引导页面"""
@@ -174,7 +174,7 @@ class AlbumGrid:
         
         # 主标题
         title_label = tk.Label(content_area,
-                             text="欢迎使用相册扫描器",
+                             text="欢迎使用漫画扫描器",
                              font=self.style_manager.fonts['heading'],
                              bg=self.style_manager.colors['card_bg'],
                              fg=self.style_manager.colors['text_primary'])
@@ -182,7 +182,7 @@ class AlbumGrid:
         
         # 副标题
         subtitle_label = tk.Label(content_area,
-                                text="现代化的图片管理工具，让您的相册井然有序",
+                                text="现代化的图片管理工具，让您的漫画井然有序",
                                 font=self.style_manager.fonts['body'],
                                 bg=self.style_manager.colors['card_bg'],
                                 fg=self.style_manager.colors['text_secondary'])
@@ -194,8 +194,8 @@ class AlbumGrid:
         
         steps = [
             ("1️⃣", "选择文件夹", "点击\"选择文件夹\"按钮或按 Ctrl+O"),
-            ("2️⃣", "扫描相册", "点击\"扫描相册\"按钮或按 Ctrl+S 开始扫描"),
-            ("3️⃣", "浏览管理", "在卡片视图中浏览和管理您的相册")
+            ("2️⃣", "扫描漫画", "点击\"扫描漫画\"按钮或按 Ctrl+S 开始扫描"),
+            ("3️⃣", "浏览管理", "在卡片视图中浏览和管理您的漫画")
         ]
         
         for icon, title, desc in steps:
@@ -248,7 +248,7 @@ class AlbumGrid:
             self.style_manager.colors['button_primary']
         )
         
-        self.style_manager.add_tooltip(start_btn, "开始选择文件夹并扫描相册")
+        self.style_manager.add_tooltip(start_btn, "开始选择文件夹并扫描漫画")
         
         # 默认显示空状态
         self.show_empty_state()
@@ -274,7 +274,7 @@ class AlbumGrid:
         self.show_empty_state()
     
     def update_albums(self, albums):
-        """更新相册显示"""
+        """更新漫画显示"""
         try:
             self.albums = albums
             
@@ -290,11 +290,11 @@ class AlbumGrid:
             # 隐藏空状态
             self.hide_empty_state()
             
-            # 创建现代化相册卡片
+            # 创建现代化漫画卡片
             self._create_modern_album_cards(albums)
             
         except Exception as e:
-            print(f"更新相册显示时出错: {e}")
+            print(f"更新漫画显示时出错: {e}")
             import traceback
             traceback.print_exc()
     
@@ -310,7 +310,7 @@ class AlbumGrid:
             # 在后台线程中加载封面
             def load_cover():
                 try:
-                    # 获取相册中的第一张图片
+                    # 获取漫画中的第一张图片
                     import glob
                     image_files = []
                     for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
@@ -361,7 +361,7 @@ class AlbumGrid:
                     else:
                         # 没有图片时显示文件夹图标
                         cover_label.after(0, lambda: cover_label.configure(
-                            text='📁\n空相册', 
+                            text='📁\n空漫画', 
                             font=self.style_manager.fonts['body'],
                             fg=self.style_manager.colors['text_tertiary']
                         ))
@@ -395,7 +395,7 @@ class AlbumGrid:
         """异步加载封面图片"""
         def load_cover():
             try:
-                # 查找相册中的第一张图片作为封面
+                # 查找漫画中的第一张图片作为封面
                 image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
                 
                 for file in os.listdir(album_path):
@@ -633,7 +633,7 @@ class AlbumGrid:
             print(f"隐藏预览窗口时出错: {e}")
 
     def display_albums(self, albums):
-        """显示相册（带滚动支持和封面）"""
+        """显示漫画（带滚动支持和封面）"""
         try:
             # 确保组件存在
             if not hasattr(self, 'scrollable_frame') or self.scrollable_frame is None:
@@ -656,16 +656,16 @@ class AlbumGrid:
             if hasattr(self, 'nav_bar') and self.nav_bar and hasattr(self.nav_bar, 'hide_start_page'):
                 self.nav_bar.hide_start_page()
             
-            # 创建现代化相册卡片
+            # 创建现代化漫画卡片
             self._create_modern_album_cards(albums)
                 
         except Exception as e:
-            print(f"显示相册列表时出错: {e}")
+            print(f"显示漫画列表时出错: {e}")
             # 创建最基本的显示
             self._create_fallback_display(albums)
     
     def _create_modern_album_cards(self, albums):
-        """创建现代化相册卡片"""
+        """创建现代化漫画卡片"""
         try:
             if not self.scrollable_frame:
                 return
@@ -686,14 +686,14 @@ class AlbumGrid:
             grid_container = tk.Frame(self.scrollable_frame, bg=self.style_manager.colors['bg_primary'])
             grid_container.pack(fill='both', expand=True, padx=self.card_spacing, pady=self.card_spacing)
             
-            # 创建相册卡片
+            # 创建漫画卡片
             for i, album in enumerate(albums):
                 try:
-                    # 验证相册数据完整性
+                    # 验证漫画数据完整性
                     if not isinstance(album, dict):
                         continue
                         
-                    album_name = album.get('name', '未知相册')
+                    album_name = album.get('name', '未知漫画')
                     image_count = album.get('image_count', 0)
                     album_path = album.get('path', '')
                     
@@ -710,7 +710,7 @@ class AlbumGrid:
                              sticky='nsew')
                         
                 except Exception as e:
-                    print(f"显示相册项时出错 {i}: {e}")
+                    print(f"显示漫画项时出错 {i}: {e}")
                     continue
             
             # 配置网格权重
@@ -722,12 +722,12 @@ class AlbumGrid:
             self.canvas.configure(scrollregion=self.canvas.bbox("all"))
                 
         except Exception as e:
-            print(f"创建相册卡片时出错: {e}")
+            print(f"创建漫画卡片时出错: {e}")
             import traceback
             traceback.print_exc()
     
     def _create_modern_album_card(self, parent, album):
-        """创建现代化单个相册卡片"""
+        """创建现代化单个漫画卡片"""
         try:
             album_path = album['path']
             album_name = album['name']
@@ -796,7 +796,7 @@ class AlbumGrid:
             info_frame.pack(fill='x', padx=self.card_padding, pady=(0, 8))
             info_frame.pack_propagate(False)  # 防止子组件改变信息区域高度
             
-            # 相册名称 - 支持多行显示，限制高度
+            # 漫画名称 - 支持多行显示，限制高度
             name_label = tk.Label(info_frame, 
                                 text=album_name,
                                 font=self.style_manager.fonts['subheading'],
@@ -848,7 +848,7 @@ class AlbumGrid:
             # 打开按钮
             open_btn_style = self.style_manager.get_button_style('primary')
             open_btn = tk.Button(button_frame, 
-                               text='📂 打开相册',
+                               text='📂 打开漫画',
                                command=lambda: self.open_callback(album_path),
                                **open_btn_style,
                                padx=12, 
@@ -861,7 +861,7 @@ class AlbumGrid:
                 self.style_manager.colors['button_primary']
             )
             
-            self.style_manager.add_tooltip(open_btn, f"打开相册：{album_name}")
+            self.style_manager.add_tooltip(open_btn, f"打开漫画：{album_name}")
             
             # 收藏按钮
             is_fav = self.is_favorite(album_path) if self.is_favorite else False
@@ -891,7 +891,7 @@ class AlbumGrid:
             return card
             
         except Exception as e:
-            print(f"创建相册卡片时出错: {e}")
+            print(f"创建漫画卡片时出错: {e}")
             # 返回一个现代化的错误卡片
             error_card = tk.Frame(parent, 
                                 bg=self.style_manager.colors['error_light'],
@@ -927,7 +927,7 @@ class AlbumGrid:
     def _add_hover_effects(self, album_frame, open_btn, fav_btn):
         """添加悬停效果"""
         try:
-            # 相册卡片悬停效果
+            # 漫画卡片悬停效果
             def on_album_enter(event):
                 album_frame.configure(relief='solid', bd=2)
                 
@@ -983,10 +983,10 @@ class AlbumGrid:
                                      bg='#F2F2F7', fg='#FF3B30')
                 error_label.pack(pady=10)
                 
-                # 简单显示相册
+                # 简单显示漫画
                 for album in albums:
                     try:
-                        album_name = album.get('name', '未知相册')
+                        album_name = album.get('name', '未知漫画')
                         album_path = album.get('path', '')
                         image_count = album.get('image_count', 0)
                         
@@ -1000,7 +1000,7 @@ class AlbumGrid:
                             tk.Button(simple_frame, text="打开", 
                                     command=lambda p=album_path: self.open_callback(p)).pack(side='right', padx=10)
                     except Exception as e:
-                        print(f"创建简化相册项时出错: {e}")
+                        print(f"创建简化漫画项时出错: {e}")
                         continue
                         
         except Exception as e:

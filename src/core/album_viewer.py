@@ -7,13 +7,13 @@ from PIL import Image, ImageTk
 import tkinter as tk
 
 class AlbumViewerManager:
-    """相册查看器管理器"""
+    """漫画查看器管理器"""
     
     def __init__(self, app):
         self.app = app
     
     def open_album(self, folder_path):
-        """打开相册查看"""
+        """打开漫画查看"""
         try:
             image_files = ImageProcessor.get_image_files(folder_path)
             
@@ -33,7 +33,7 @@ class AlbumViewerManager:
                 
                 # 更新主窗口状态
                 album_name = os.path.basename(folder_path)
-                self.app.status_bar.set_status(f"已打开相册: {album_name}")
+                self.app.status_bar.set_status(f"已打开漫画: {album_name}")
                 self.app.status_bar.set_info(f"{len(image_files)} 张图片")
                 
             except Exception as e:
@@ -42,15 +42,15 @@ class AlbumViewerManager:
                 self._create_simple_viewer(album_window, image_files, os.path.basename(folder_path))
             
         except Exception as e:
-            messagebox.showerror("错误", f"打开相册时发生错误：{str(e)}")
-            self.app.status_bar.set_status("打开相册失败")
+            messagebox.showerror("错误", f"打开漫画时发生错误：{str(e)}")
+            self.app.status_bar.set_status("打开漫画失败")
     
     def _create_album_window(self, folder_path):
-        """创建相册窗口"""
+        """创建漫画窗口"""
         album_window = Toplevel(self.app.root)
         album_name = os.path.basename(folder_path)
-        album_window.title(f"📸 相册查看器 - {album_name}")
-        album_window.geometry("1300x900")  # 增大相册查看窗口
+        album_window.title(f"📸 漫画查看器 - {album_name}")
+        album_window.geometry("1300x900")  # 增大漫画查看窗口
         album_window.minsize(1000, 700)  # 增大最小尺寸
         
         # 设置窗口图标和属性

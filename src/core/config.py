@@ -83,7 +83,7 @@ class ConfigManager:
         self.save_config()
     
     def get_recent_albums(self):
-        """获取最近浏览的相册"""
+        """获取最近浏览的漫画"""
         recent_albums = self.config.get('recent_albums', [])
         # 过滤不存在的路径
         valid_albums = []
@@ -124,7 +124,7 @@ class ConfigManager:
         return album_path in self.config.get('favorites', [])
     
     def get_favorites(self):
-        """获取收藏的相册"""
+        """获取收藏的漫画"""
         favorites = self.config.get('favorites', [])
         # 过滤不存在的路径
         valid_favorites = []

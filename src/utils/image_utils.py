@@ -13,7 +13,7 @@ class ImageProcessor:
     
     @classmethod
     def scan_albums(cls, root_path):
-        """扫描相册文件夹，正确处理Unicode路径，支持递归扫描"""
+        """扫描漫画文件夹，正确处理Unicode路径，支持递归扫描"""
         albums = []
         
         try:

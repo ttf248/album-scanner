@@ -155,9 +155,9 @@ class StatusBar:
     def set_scan_results(self, album_count, image_count, scan_time=None):
         """设置扫描结果信息"""
         if album_count == 0:
-            info_text = "未发现相册"
+            info_text = "未发现漫画"
         else:
-            info_text = f"发现 {album_count} 个相册，共 {image_count} 张图片"
+            info_text = f"发现 {album_count} 个漫画，共 {image_count} 张图片"
             
         if scan_time:
             info_text += f" (耗时 {scan_time:.1f}s)"
@@ -168,7 +168,7 @@ class StatusBar:
         if album_count > 0:
             self.set_status("扫描完成", 'success')
         else:
-            self.set_status("扫描完成，未发现相册", 'warning')
+            self.set_status("扫描完成，未发现漫画", 'warning')
     
     def show_loading(self, message="正在处理..."):
         """显示加载状态"""

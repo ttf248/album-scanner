@@ -11,7 +11,7 @@ from src.ui.components.image_viewer import ImageViewer
 from src.ui.components.status_bar import StatusBar
 
 class PhotoAlbumApp:
-    """现代化相册扫描器主应用程序"""
+    """现代化漫画扫描器主应用程序"""
     
     def __init__(self, root):
         self.root = root
@@ -43,7 +43,7 @@ class PhotoAlbumApp:
         
     def setup_window(self):
         """设置窗口属性"""
-        self.root.title("相册扫描器 - 现代化图片管理")
+        self.root.title("漫画扫描器 - 现代化图片管理")
         
         # 窗口大小和位置 - 增大默认尺寸以适应新布局
         window_size = self.config_manager.config.get('window_size', '1400x900')
@@ -95,7 +95,7 @@ class PhotoAlbumApp:
             )
             # NavigationBar已经在create_widgets中自动pack了
             
-            # 创建现代化相册网格
+            # 创建现代化漫画网格
             self.album_grid = AlbumGrid(
                 self.root,
                 open_callback=self.open_album,
@@ -130,7 +130,7 @@ class PhotoAlbumApp:
                     display_name = folder_name
                 self.status_bar.set_status(f"上次路径: {display_name}", "info")
             else:
-                self.status_bar.set_status("欢迎使用相册扫描器", "success")
+                self.status_bar.set_status("欢迎使用漫画扫描器", "success")
             
             print("现代化UI组件创建成功")
             
@@ -161,7 +161,7 @@ class PhotoAlbumApp:
     def browse_folder(self):
         """浏览并选择文件夹"""
         folder_selected = filedialog.askdirectory(
-            title="选择相册文件夹",
+            title="选择漫画文件夹",
             initialdir=self.folder_path if self.folder_path else str(Path.home())
         )
         if folder_selected:
@@ -182,19 +182,19 @@ class PhotoAlbumApp:
             self.status_bar.set_status(f"已选择: {display_name}", "success")
             
     def scan_albums(self):
-        """扫描相册"""
+        """扫描漫画"""
         from src.core.album_scanner import AlbumScannerService
         scanner = AlbumScannerService(self)
         scanner.scan_albums()
     
     def show_recent_albums(self):
-        """显示最近浏览的相册"""
+        """显示最近浏览的漫画"""
         from src.core.album_history import AlbumHistoryManager
         history_manager = AlbumHistoryManager(self)
         history_manager.show_recent_albums()
     
     def show_favorites(self):
-        """显示收藏的相册"""
+        """显示收藏的漫画"""
         from src.core.album_favorites import AlbumFavoritesManager
         favorites_manager = AlbumFavoritesManager(self)
         favorites_manager.show_favorites()
@@ -213,7 +213,7 @@ class PhotoAlbumApp:
             self.album_grid.update_albums(self.albums)
             
     def open_album(self, folder_path):
-        """打开相册查看"""
+        """打开漫画查看"""
         from src.core.album_viewer import AlbumViewerManager
         viewer_manager = AlbumViewerManager(self)
         viewer_manager.open_album(folder_path)

@@ -66,25 +66,25 @@ class NavigationBar:
                 'tooltip': '选择要扫描的文件夹 (Ctrl+O)'
             },
             {
-                'text': '🔍 扫描相册',
+                'text': '🔍 扫描漫画',
                 'command': self.scan_callback,
                 'type': 'primary',
                 'shortcut': 'Ctrl+S',
-                'tooltip': '开始扫描选定文件夹中的相册 (Ctrl+S)'
+                'tooltip': '开始扫描选定文件夹中的漫画 (Ctrl+S)'
             },
             {
                 'text': '🕒 最近浏览',
                 'command': self.recent_callback,
                 'type': 'secondary',
                 'shortcut': 'Ctrl+R',
-                'tooltip': '查看最近浏览的相册 (Ctrl+R)'
+                'tooltip': '查看最近浏览的漫画 (Ctrl+R)'
             },
             {
                 'text': '⭐ 我的收藏',
                 'command': self.favorites_callback,
                 'type': 'secondary',
                 'shortcut': 'Ctrl+F',
-                'tooltip': '查看收藏的相册 (Ctrl+F)'
+                'tooltip': '查看收藏的漫画 (Ctrl+F)'
             }
         ]
         
