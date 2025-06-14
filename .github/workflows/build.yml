@@ -32,13 +32,14 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller>=5.13.0
+          pip install pyinstaller==5.10.1
 
       # 验证Python环境
       - name: Verify Python environment
         run: |
           python --version
           python -c "import encodings.aliases; print('encodings.aliases module found')"
+          python -c "import sys; print('Python path:', sys.path)"
           pyinstaller --version
 
       # 安装UPX压缩工具 (Windows)
@@ -56,11 +57,18 @@ jobs:
 
       # 打包为可执行文件 (使用优化的spec文件)
       - name: Build executable
+        env:
+          PYTHONPATH: ${{ runner.os == 'Linux' && '/opt/hostedtoolcache/Python/3.11.12/x64/lib/python3.11:/opt/hostedtoolcache/Python/3.11.12/x64/lib/python3.11/site-packages' || '' }}
         run: |
           # 显示当前目录内容用于调试
           ls -la
           # 清理之前的构建
           rm -rf build/ dist/
+          # 设置Python环境变量 (Linux)
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            export PYTHONHOME="/opt/hostedtoolcache/Python/3.11.12/x64"
+            export PYTHONPATH="/opt/hostedtoolcache/Python/3.11.12/x64/lib/python3.11:/opt/hostedtoolcache/Python/3.11.12/x64/lib/python3.11/site-packages"
+          fi
           # 运行PyInstaller
           pyinstaller --clean --noconfirm album-scanner.spec
 
