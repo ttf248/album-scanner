@@ -42,7 +42,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: album-scanner-${{ matrix.os }}
+          name: comic-reader-${{ matrix.os }}
           path: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
   release:
     needs: build
@@ -60,21 +60,21 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: album-scanner-ubuntu-latest
+          name: comic-reader-ubuntu-latest
           path: ./dist/ubuntu
       
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: album-scanner-windows-latest
+          name: comic-reader-windows-latest
           path: ./dist/windows
 
       # 重命名文件以便更好地识别
       - name: Rename artifacts
         run: |
-          mv ./dist/ubuntu/main ./dist/ubuntu/album-scanner-linux
-          mv ./dist/windows/main.exe ./dist/windows/album-scanner-windows.exe
-          chmod +x ./dist/ubuntu/album-scanner-linux
+          mv ./dist/ubuntu/main ./dist/ubuntu/comic-reader-linux
+          mv ./dist/windows/main.exe ./dist/windows/comic-reader-windows.exe
+          chmod +x ./dist/ubuntu/comic-reader-linux
 
       # 发布 Release 并上传文件
       - name: Upload Release Assets
@@ -89,7 +89,7 @@ jobs:
           
           # 上传文件到 release
           gh release upload ${{ github.event.release.tag_name }} \
-            ./dist/ubuntu/album-scanner-linux \
-            ./dist/windows/album-scanner-windows.exe \
+            ./dist/ubuntu/comic-reader-linux \
+            ./dist/windows/comic-reader-windows.exe \
             --repo ${{ github.repository }} \
             --clobber
