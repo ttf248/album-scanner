@@ -4,7 +4,11 @@ import os
 from pathlib import Path
 from src.core.config import ConfigManager
 from src.utils.image_utils import ImageProcessor
-from src.ui.ui_components import StyleManager, NavigationBar, AlbumGrid, ImageViewer, StatusBar
+from src.ui.components.style_manager import StyleManager  # 从components导入
+from src.ui.components.navigation_bar import NavigationBar  # 从components导入
+from src.ui.components.album_grid import AlbumGrid  # 从components导入
+from src.ui.components.image_viewer import ImageViewer  # 从components导入
+from src.ui.components.status_bar import StatusBar  # 从components导入
 
 class PhotoAlbumApp:
     """现代化相册扫描器主应用程序"""

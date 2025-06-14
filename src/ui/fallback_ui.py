@@ -32,7 +32,7 @@ class FallbackUIManager:
         
         # 创建简单的相册网格
         try:
-            from ui_components import AlbumGrid
+            from .components.album_grid import AlbumGrid  # 从components导入
             self.app.album_grid = AlbumGrid(main_frame, self.app.open_album, self.app.toggle_favorite)
             self.app.album_grid.is_favorite = self.app.config_manager.is_favorite
         except Exception as e:

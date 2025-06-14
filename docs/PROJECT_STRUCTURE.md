@@ -17,7 +17,12 @@ album-scanner/
 │   │   └── album_viewer.py  # 相册查看器
 │   ├── ui/                  # 用户界面
 │   │   ├── __init__.py
-│   │   ├── ui_components.py # UI组件
+│   │   ├── components/      # UI组件模块
+│   │   │   ├── style_manager.py  # 样式管理
+│   │   │   ├── navigation_bar.py # 导航栏
+│   │   │   ├── album_grid.py     # 相册网格
+│   │   │   ├── image_viewer.py   # 图片查看器
+│   │   │   └── status_bar.py     # 状态栏
 │   │   └── fallback_ui.py   # 备用UI
 │   └── utils/               # 工具模块
 │       ├── __init__.py
@@ -44,7 +49,12 @@ album-scanner/
 - `album_viewer.py`: 图片查看和展示
 
 ### UI模块 (src/ui/)
-- `ui_components.py`: 主要UI组件和界面
+- `components/`: UI组件模块化目录
+  - `style_manager.py`: 样式和主题管理
+  - `navigation_bar.py`: 顶部导航栏组件
+  - `album_grid.py`: 相册网格显示组件
+  - `image_viewer.py`: 图片查看器组件
+  - `status_bar.py`: 底部状态栏组件
 - `fallback_ui.py`: 备用简单界面
 
 ### 工具模块 (src/utils/)

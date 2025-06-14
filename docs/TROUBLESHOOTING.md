@@ -299,7 +299,7 @@ print(result)
 ```bash
 # 测试图片查看器
 python -c "
-from ui_components import ImageViewer
+from src.ui.components.image_viewer import ImageViewer
 import tkinter as tk
 root = tk.Tk()
 viewer = ImageViewer(root)

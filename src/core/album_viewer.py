@@ -1,8 +1,10 @@
 import os
 from tkinter import messagebox, Toplevel
 from ..utils.image_utils import ImageProcessor
-from ..ui.ui_components import ImageViewer, get_safe_font
+from ..ui.components.image_viewer import ImageViewer  # 直接从components导入
+from ..ui.components.style_manager import get_safe_font  # 直接从components导入
 from PIL import Image, ImageTk
+import tkinter as tk
 
 class AlbumViewerManager:
     """相册查看器管理器"""
@@ -115,7 +117,6 @@ class AlbumViewerManager:
                     load_image()
             
             # 按钮 - 添加快捷键提示  
-            import tkinter as tk
             tk.Button(control_frame, text="上一张 (←)", command=prev_image).pack(side='left', padx=5, pady=5)
             tk.Button(control_frame, text="下一张 (→)", command=next_image).pack(side='left', padx=5, pady=5)
             tk.Button(control_frame, text="关闭 (ESC)", command=window.destroy).pack(side='right', padx=5, pady=5)
