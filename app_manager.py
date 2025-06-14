@@ -4,11 +4,11 @@ import os
 from pathlib import Path
 from src.core.config import ConfigManager
 from src.utils.image_utils import ImageProcessor
-from src.ui.components.style_manager import StyleManager  # 从components导入
-from src.ui.components.navigation_bar import NavigationBar  # 从components导入
-from src.ui.components.album_grid import AlbumGrid  # 从components导入
-from src.ui.components.image_viewer import ImageViewer  # 从components导入
-from src.ui.components.status_bar import StatusBar  # 从components导入
+from src.ui.components.style_manager import StyleManager
+from src.ui.components.navigation_bar import NavigationBar
+from src.ui.components.album_grid import AlbumGrid
+from src.ui.components.image_viewer import ImageViewer
+from src.ui.components.status_bar import StatusBar
 
 class PhotoAlbumApp:
     """现代化相册扫描器主应用程序"""
@@ -22,10 +22,13 @@ class PhotoAlbumApp:
         # 然后设置窗口
         self.setup_window()
         
-        # 设置样式
+        # 初始化现代化样式管理器
         from tkinter import ttk
-        self.style = ttk.Style()
-        self.style_manager = StyleManager(self.root, self.style)
+        style = ttk.Style()
+        self.style_manager = StyleManager(self.root, style)
+        
+        # 配置TTK样式
+        self.style_manager.configure_ttk_styles()
         
         # 初始化变量
         self.folder_path = self.config_manager.get_last_path()
@@ -47,47 +50,92 @@ class PhotoAlbumApp:
         self.root.geometry(window_size)
         self.root.minsize(900, 600)
         
-        # 设置主题
+        # 设置现代化主题
         try:
-            self.root.set_theme("arc")
-        except:
-            pass  # 如果主题不可用，使用默认主题
+            # 尝试设置现代化主题
+            available_themes = ['arc', 'equilux', 'adapta', 'yaru']
+            theme_set = False
+            
+            for theme in available_themes:
+                try:
+                    self.root.set_theme(theme)
+                    print(f"已应用 {theme} 主题")
+                    theme_set = True
+                    break
+                except Exception as e:
+                    print(f"设置 {theme} 主题失败: {e}")
+                    continue
+            
+            if not theme_set:
+                print("使用默认主题")
+                try:
+                    self.root.set_theme('default')
+                except:
+                    pass
+                    
+        except Exception as e:
+            print(f"主题设置过程出错: {e}")
         
     def create_widgets(self):
         """创建现代化UI组件"""
         try:
-            # 导航栏
+            # 创建路径变量
+            self.path_var = tk.StringVar()
+            self.path_var.set(self.config_manager.get_last_path())
+            
+            # 创建现代化导航栏
             self.nav_bar = NavigationBar(
-                self.root, 
-                self.browse_folder, 
-                self.scan_albums, 
-                self.path_var,
-                self.show_recent_albums,
-                self.show_favorites
+                self.root,
+                browse_callback=self.browse_folder,
+                scan_callback=self.scan_albums,
+                path_var=self.path_var,
+                recent_callback=self.show_recent_albums,
+                favorites_callback=self.show_favorites,
+                style_manager=self.style_manager
             )
+            # NavigationBar已经在create_widgets中自动pack了
             
-            # 相册网格
-            self.album_grid = AlbumGrid(self.root, self.open_album, self.toggle_favorite)
-            # 设置收藏检查函数
+            # 创建现代化相册网格
+            self.album_grid = AlbumGrid(
+                self.root,
+                open_callback=self.open_album,
+                favorite_callback=self.toggle_favorite,
+                style_manager=self.style_manager
+            )
+            # 设置is_favorite回调
             self.album_grid.is_favorite = self.config_manager.is_favorite
-            # 建立与导航栏的关联
-            if hasattr(self, 'nav_bar'):
-                self.album_grid.nav_bar = self.nav_bar
+            # AlbumGrid已经在create_widgets中自动pack了
             
-            # 状态栏
-            self.status_bar = StatusBar(self.root)
+            # 创建现代化状态栏
+            self.status_bar = StatusBar(
+                self.root,
+                style_manager=self.style_manager
+            )
+            # StatusBar已经在create_widgets中自动pack了
+            
+            # 设置组件间的引用
+            self.album_grid.nav_bar = self.nav_bar
+            
+            # 更新路径显示
+            if self.folder_path:
+                self.path_var.set(self.folder_path)
             
             # 初始状态
-            self.status_bar.set_status("欢迎使用相册扫描器")
+            self.status_bar.set_status("欢迎使用相册扫描器", "success")
+            
+            print("现代化UI组件创建成功")
             
         except Exception as e:
             print(f"创建UI组件时发生错误: {e}")
             import traceback
             traceback.print_exc()
             # 创建简化版本的UI
-            from src.ui.fallback_ui import FallbackUIManager
-            fallback_manager = FallbackUIManager(self)
-            fallback_manager.create_fallback_ui()
+            try:
+                from src.ui.fallback_ui import FallbackUIManager
+                fallback_manager = FallbackUIManager(self)
+                fallback_manager.create_fallback_ui()
+            except Exception as fallback_error:
+                print(f"创建回退UI也失败: {fallback_error}")
 
     def bind_events(self):
         """绑定事件"""
@@ -114,13 +162,15 @@ class PhotoAlbumApp:
             self.path_var.set(folder_selected)
             self.config_manager.set_last_path(folder_selected)
             
+            # 路径已通过self.path_var.set()更新，NavigationBar会自动显示
+            
             # 显示文件夹名称，处理长路径
             folder_name = Path(folder_selected).name
             if len(folder_name) > 30:
                 display_name = folder_name[:27] + "..."
             else:
                 display_name = folder_name
-            self.status_bar.set_status(f"已选择: {display_name}")
+            self.status_bar.set_status(f"已选择: {display_name}", "success")
             
     def scan_albums(self):
         """扫描相册"""
@@ -144,14 +194,14 @@ class PhotoAlbumApp:
         """切换收藏状态"""
         if self.config_manager.is_favorite(album_path):
             self.config_manager.remove_favorite(album_path)
-            self.status_bar.set_status(f"已从收藏中移除: {os.path.basename(album_path)}")
+            self.status_bar.set_status(f"已从收藏中移除: {os.path.basename(album_path)}", "warning")
         else:
             self.config_manager.add_favorite(album_path)
-            self.status_bar.set_status(f"已添加到收藏: {os.path.basename(album_path)}")
+            self.status_bar.set_status(f"已添加到收藏: {os.path.basename(album_path)}", "success")
         
         # 刷新当前显示
         if self.albums:
-            self.album_grid.display_albums(self.albums)
+            self.album_grid.update_albums(self.albums)
             
     def open_album(self, folder_path):
         """打开相册查看"""

@@ -10,14 +10,22 @@ from .status_bar import StatusBar
 
 
 class AlbumGrid:
-    """瀑布流相册网格"""
+    """现代化相册网格组件 - 卡片式瀑布流布局"""
     
-    def __init__(self, parent, open_callback, favorite_callback):
+    def __init__(self, parent, open_callback, favorite_callback, style_manager=None):
         self.parent = parent
         self.open_callback = open_callback
         self.favorite_callback = favorite_callback
         self.is_favorite = None  # 由外部设置
         self.nav_bar = None  # 导航栏引用
+        
+        # 使用传入的样式管理器或创建新实例
+        if style_manager:
+            self.style_manager = style_manager
+        else:
+            from tkinter import ttk
+            style = ttk.Style()
+            self.style_manager = StyleManager(parent, style)
         
         # 封面缓存
         self.cover_cache = {}  # 缓存封面图片
@@ -28,24 +36,49 @@ class AlbumGrid:
         self.preview_window = None
         self.preview_timer = None
         
+        # 现代化布局参数
+        self.columns = 3
+        self.card_width = 320
+        self.card_spacing = 16
+        self.card_padding = 16
+        
         # 确保初始化grid_frame
         self.grid_frame = None
         self.canvas = None
         self.scrollbar = None
         self.scrollable_frame = None
         self.create_widgets()
+        self.create_empty_state()
     
     def create_widgets(self):
-        """创建带滚动功能的网格组件"""
+        """创建现代化网格组件"""
         try:
-            # 创建主容器
-            self.grid_frame = tk.Frame(self.parent, bg='#F2F2F7')
-            self.grid_frame.pack(fill='both', expand=True)
+            # 主容器 - 使用现代化背景
+            self.grid_frame = tk.Frame(self.parent, bg=self.style_manager.colors['bg_primary'])
+            self.grid_frame.pack(fill='both', expand=True, padx=16, pady=(8, 16))
             
-            # 创建Canvas和滚动条
-            self.canvas = tk.Canvas(self.grid_frame, bg='#F2F2F7', highlightthickness=0)
-            self.scrollbar = tk.Scrollbar(self.grid_frame, orient="vertical", command=self.canvas.yview)
-            self.scrollable_frame = tk.Frame(self.canvas, bg='#F2F2F7')
+            # 创建Canvas和现代化滚动条
+            self.canvas = tk.Canvas(self.grid_frame, 
+                                  bg=self.style_manager.colors['bg_primary'], 
+                                  highlightthickness=0,
+                                  relief='flat')
+            
+            # 现代化滚动条样式
+            style = ttk.Style()
+            style.configure('Modern.Vertical.TScrollbar',
+                           background=self.style_manager.colors['scrollbar_bg'],
+                           troughcolor=self.style_manager.colors['scrollbar_bg'],
+                           borderwidth=0,
+                           arrowcolor=self.style_manager.colors['scrollbar_thumb'],
+                           darkcolor=self.style_manager.colors['scrollbar_thumb'],
+                           lightcolor=self.style_manager.colors['scrollbar_thumb'])
+            
+            self.scrollbar = ttk.Scrollbar(self.grid_frame, 
+                                         orient='vertical', 
+                                         command=self.canvas.yview,
+                                         style='Modern.Vertical.TScrollbar')
+            
+            self.scrollable_frame = tk.Frame(self.canvas, bg=self.style_manager.colors['bg_primary'])
             
             # 配置滚动
             self.scrollable_frame.bind(
@@ -60,11 +93,8 @@ class AlbumGrid:
             self.canvas.pack(side="left", fill="both", expand=True)
             self.scrollbar.pack(side="right", fill="y")
             
-            # 绑定鼠标滚轮事件
+            # 绑定鼠标滚轮事件 - 改进滚动体验
             self._bind_mousewheel()
-            
-            # 显示初始状态
-            self._show_empty_state()
             
         except Exception as e:
             print(f"创建AlbumGrid组件时出错: {e}")
@@ -95,21 +125,229 @@ class AlbumGrid:
             self.canvas.bind('<Enter>', _bind_to_mousewheel)
             self.canvas.bind('<Leave>', _unbind_from_mousewheel)
     
-    def _show_empty_state(self):
+    def create_empty_state(self):
+        """创建空状态引导页面"""
+        self.empty_frame = tk.Frame(self.scrollable_frame, bg=self.style_manager.colors['bg_primary'])
+        
+        # 空状态容器
+        empty_container = tk.Frame(self.empty_frame, 
+                                 bg=self.style_manager.colors['card_bg'],
+                                 relief='flat',
+                                 bd=1)
+        empty_container.pack(fill='both', expand=True, padx=40, pady=40)
+        
+        # 内容区域
+        content_area = tk.Frame(empty_container, bg=self.style_manager.colors['card_bg'])
+        content_area.pack(fill='both', expand=True, padx=60, pady=60)
+        
+        # 图标
+        icon_label = tk.Label(content_area, 
+                            text="📸",
+                            font=self.style_manager.fonts['title'],
+                            bg=self.style_manager.colors['card_bg'],
+                            fg=self.style_manager.colors['accent'])
+        icon_label.pack(pady=(0, 20))
+        
+        # 主标题
+        title_label = tk.Label(content_area,
+                             text="欢迎使用相册扫描器",
+                             font=self.style_manager.fonts['heading'],
+                             bg=self.style_manager.colors['card_bg'],
+                             fg=self.style_manager.colors['text_primary'])
+        title_label.pack(pady=(0, 12))
+        
+        # 副标题
+        subtitle_label = tk.Label(content_area,
+                                text="现代化的图片管理工具，让您的相册井然有序",
+                                font=self.style_manager.fonts['body'],
+                                bg=self.style_manager.colors['card_bg'],
+                                fg=self.style_manager.colors['text_secondary'])
+        subtitle_label.pack(pady=(0, 30))
+        
+        # 操作步骤
+        steps_frame = tk.Frame(content_area, bg=self.style_manager.colors['card_bg'])
+        steps_frame.pack(fill='x', pady=(0, 30))
+        
+        steps = [
+            ("1️⃣", "选择文件夹", "点击\"选择文件夹\"按钮或按 Ctrl+O"),
+            ("2️⃣", "扫描相册", "点击\"扫描相册\"按钮或按 Ctrl+S 开始扫描"),
+            ("3️⃣", "浏览管理", "在卡片视图中浏览和管理您的相册")
+        ]
+        
+        for icon, title, desc in steps:
+            step_frame = tk.Frame(steps_frame, bg=self.style_manager.colors['card_bg'])
+            step_frame.pack(fill='x', pady=8)
+            
+            # 步骤图标
+            step_icon = tk.Label(step_frame,
+                               text=icon,
+                               font=self.style_manager.fonts['subheading'],
+                               bg=self.style_manager.colors['card_bg'])
+            step_icon.pack(side='left', padx=(0, 12))
+            
+            # 步骤内容
+            step_content = tk.Frame(step_frame, bg=self.style_manager.colors['card_bg'])
+            step_content.pack(side='left', fill='x', expand=True)
+            
+            step_title = tk.Label(step_content,
+                                text=title,
+                                font=self.style_manager.fonts['body_medium'],
+                                bg=self.style_manager.colors['card_bg'],
+                                fg=self.style_manager.colors['text_primary'],
+                                anchor='w')
+            step_title.pack(fill='x')
+            
+            step_desc = tk.Label(step_content,
+                               text=desc,
+                               font=self.style_manager.fonts['caption'],
+                               bg=self.style_manager.colors['card_bg'],
+                               fg=self.style_manager.colors['text_secondary'],
+                               anchor='w')
+            step_desc.pack(fill='x')
+        
+        # 快速开始按钮
+        quick_start_frame = tk.Frame(content_area, bg=self.style_manager.colors['card_bg'])
+        quick_start_frame.pack(pady=(20, 0))
+        
+        start_btn_style = self.style_manager.get_button_style('primary')
+        start_btn = tk.Button(quick_start_frame,
+                            text="🚀 快速开始",
+                            command=self.quick_start,
+                            **start_btn_style,
+                            padx=24,
+                            pady=12)
+        start_btn.pack()
+        
+        self.style_manager.create_hover_effect(
+            start_btn,
+            self.style_manager.colors['button_primary_hover'],
+            self.style_manager.colors['button_primary']
+        )
+        
+        self.style_manager.add_tooltip(start_btn, "开始选择文件夹并扫描相册")
+        
+        # 默认显示空状态
+        self.show_empty_state()
+    
+    def quick_start(self):
+        """快速开始 - 触发选择文件夹"""
+        if hasattr(self.parent, 'browse_folder'):
+            self.parent.browse_folder()
+        elif self.nav_bar and hasattr(self.nav_bar, 'browse_callback'):
+            self.nav_bar.browse_callback()
+    
+    def show_empty_state(self):
         """显示空状态"""
+        # 显示空状态
+        self.empty_frame.pack(fill='both', expand=True)
+    
+    def hide_empty_state(self):
+        """隐藏空状态"""
+        self.empty_frame.pack_forget()
+    
+    def _show_empty_state(self):
+        """显示空状态（兼容旧方法）"""
+        self.show_empty_state()
+    
+    def update_albums(self, albums):
+        """更新相册显示"""
         try:
+            self.albums = albums
+            
+            # 清除现有显示
             if self.scrollable_frame:
-                # 清除现有内容
                 for widget in self.scrollable_frame.winfo_children():
                     widget.destroy()
-                
-                # 显示空状态提示
-                empty_label = tk.Label(self.scrollable_frame, text="请选择文件夹并扫描相册", 
-                                      font=get_safe_font('Arial', 16), 
-                                      bg='#F2F2F7', fg='#6D6D80')
-                empty_label.pack(expand=True, pady=100)
+            
+            if not albums:
+                self.show_empty_state()
+                return
+            
+            # 隐藏空状态
+            self.hide_empty_state()
+            
+            # 创建现代化相册卡片
+            self._create_modern_album_cards(albums)
+            
         except Exception as e:
-            print(f"显示空状态时出错: {e}")
+            print(f"更新相册显示时出错: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _load_cover_async(self, album_path, cover_label):
+        """异步加载封面图片"""
+        try:
+            # 检查缓存
+            if album_path in self.cover_cache:
+                photo = self.cover_cache[album_path]
+                self._update_cover_image(cover_label, photo)
+                return
+            
+            # 在后台线程中加载封面
+            def load_cover():
+                try:
+                    # 获取相册中的第一张图片
+                    import glob
+                    image_files = []
+                    for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+                        pattern = os.path.join(album_path, f'*{ext}')
+                        image_files.extend(glob.glob(pattern))
+                        pattern = os.path.join(album_path, f'*{ext.upper()}')
+                        image_files.extend(glob.glob(pattern))
+                    
+                    if image_files:
+                        # 按文件名排序，取第一张
+                        image_files.sort()
+                        first_image = image_files[0]
+                        
+                        # 加载并调整图片大小
+                        from PIL import Image, ImageTk
+                        image = Image.open(first_image)
+                        
+                        # 计算缩放比例，保持宽高比
+                        target_size = (180, 180)
+                        image.thumbnail(target_size, Image.Resampling.LANCZOS)
+                        
+                        # 转换为PhotoImage
+                        photo = ImageTk.PhotoImage(image)
+                        
+                        # 缓存图片
+                        self.cover_cache[album_path] = photo
+                        
+                        # 在主线程中更新UI
+                        cover_label.after(0, lambda: self._update_cover_image(cover_label, photo))
+                    else:
+                        # 没有图片时显示文件夹图标
+                        cover_label.after(0, lambda: cover_label.configure(
+                            text='📁\n空相册', 
+                            font=self.style_manager.fonts['body'],
+                            fg=self.style_manager.colors['text_tertiary']
+                        ))
+                        
+                except Exception as e:
+                    print(f"加载封面图片失败: {e}")
+                    # 显示错误状态
+                    cover_label.after(0, lambda: cover_label.configure(
+                        text='❌\n加载失败', 
+                        font=self.style_manager.fonts['body'],
+                        fg=self.style_manager.colors['error']
+                    ))
+            
+            # 在线程池中执行
+            import threading
+            thread = threading.Thread(target=load_cover, daemon=True)
+            thread.start()
+            
+        except Exception as e:
+            print(f"启动封面加载线程失败: {e}")
+    
+    def _update_cover_image(self, label, photo):
+        """更新封面图片"""
+        try:
+            label.configure(image=photo, text='')
+            label.image = photo  # 保持引用
+        except Exception as e:
+            print(f"更新封面图片失败: {e}")
         
     def _load_cover_image(self, album_path, callback, size=(120, 120)):
         """异步加载封面图片"""
@@ -340,17 +578,43 @@ class AlbumGrid:
             
             if not albums or len(albums) == 0:
                 # 显示空状态
-                empty_label = tk.Label(self.scrollable_frame, text="暂无相册", 
-                                      font=get_safe_font('Arial', 16), 
-                                      bg='#F2F2F7', fg='#6D6D80')
-                empty_label.pack(expand=True, pady=100)
+                self.show_empty_state()
                 return
+            
+            # 隐藏空状态
+            self.hide_empty_state()
             
             # 隐藏导航栏的启动页（如果存在）
             if hasattr(self, 'nav_bar') and self.nav_bar and hasattr(self.nav_bar, 'hide_start_page'):
                 self.nav_bar.hide_start_page()
             
-            # 创建相册列表显示
+            # 创建现代化相册卡片
+            self._create_modern_album_cards(albums)
+                
+        except Exception as e:
+            print(f"显示相册列表时出错: {e}")
+            # 创建最基本的显示
+            self._create_fallback_display(albums)
+    
+    def _create_modern_album_cards(self, albums):
+        """创建现代化相册卡片"""
+        try:
+            if not self.scrollable_frame:
+                return
+            
+            # 计算响应式列数
+            canvas_width = self.canvas.winfo_width()
+            if canvas_width > 1:
+                # 根据卡片宽度和间距计算最佳列数
+                available_width = canvas_width - 40  # 减去边距
+                card_total_width = self.card_width + self.card_spacing
+                self.columns = max(1, available_width // card_total_width)
+            
+            # 创建网格容器
+            grid_container = tk.Frame(self.scrollable_frame, bg=self.style_manager.colors['bg_primary'])
+            grid_container.pack(fill='both', expand=True, padx=self.card_spacing, pady=self.card_spacing)
+            
+            # 创建相册卡片
             for i, album in enumerate(albums):
                 try:
                     # 验证相册数据完整性
@@ -364,109 +628,208 @@ class AlbumGrid:
                     if not album_path:
                         continue
                     
-                    # 创建相册卡片 - 增加高度以容纳封面
-                    album_frame = tk.Frame(self.scrollable_frame, bg='white', relief='solid', bd=1)
-                    album_frame.pack(fill='x', padx=15, pady=8)
+                    row = i // self.columns
+                    col = i % self.columns
                     
-                    # 主要内容框架 - 使用水平布局
-                    main_frame = tk.Frame(album_frame, bg='white')
-                    main_frame.pack(fill='x', padx=15, pady=15)
-                    
-                    # 左侧封面区域
-                    cover_frame = tk.Frame(main_frame, bg='white', width=120, height=120)
-                    cover_frame.pack(side='left', padx=(0, 15))
-                    cover_frame.pack_propagate(False)  # 保持固定大小
-                    
-                    # 封面占位符
-                    cover_label = tk.Label(cover_frame, text="📁", 
-                                         font=get_safe_font('Arial', 48),
-                                         bg='#F2F2F7', fg='#8E8E93',
-                                         width=120, height=120, cursor='hand2')
-                    cover_label.pack(fill='both')
-                    
-                    # 封面点击事件 - 预览相册
-                    cover_label.bind('<Button-1>', 
-                                   lambda e, path=album_path: self.open_callback(path))
-                    
-                    # 封面悬停事件 - 显示预览
-                    # cover_label.bind('<Enter>', 
-                    #                lambda e, path=album_path, name=album_name: 
-                    #                self._show_preview_window(e, path, name))
-                    cover_label.bind('<Leave>', 
-                                   lambda e: self._schedule_hide_preview())
-                    
-                    # 右侧信息区域
-                    info_frame = tk.Frame(main_frame, bg='white')
-                    info_frame.pack(side='left', fill='both', expand=True)
-                    
-                    # 名称
-                    name_label = tk.Label(info_frame, text=album_name, 
-                                         font=get_safe_font('Arial', 16, 'bold'), 
-                                         bg='white', fg='black', anchor='w')
-                    name_label.pack(fill='x', pady=(0, 5))
-                    
-                    # 统计信息
-                    stats_text = f"📷 {image_count} 张图片"
-                    if 'folder_size' in album and album['folder_size']:
-                        stats_text += f"  💾 {album['folder_size']}"
-                    stats_label = tk.Label(info_frame, text=stats_text, 
-                                          font=get_safe_font('Arial', 12), 
-                                          bg='white', fg='#6D6D80', anchor='w')
-                    stats_label.pack(fill='x', pady=(0, 5))
-                    
-                    # 路径信息
-                    path_text = f"📁 {album_path}"
-                    if len(path_text) > 60:
-                        path_text = path_text[:57] + "..."
-                    path_label = tk.Label(info_frame, text=path_text, 
-                                         font=get_safe_font('Arial', 10), 
-                                         bg='white', fg='#8E8E93', anchor='w')
-                    path_label.pack(fill='x', pady=(0, 10))
-                    
-                    # 按钮框架
-                    btn_frame = tk.Frame(info_frame, bg='white')
-                    btn_frame.pack(fill='x')
-                    
-                    # 打开按钮 - 增大尺寸
-                    open_btn = tk.Button(btn_frame, text="🔍 打开相册", 
-                                       font=get_safe_font('Arial', 11, 'bold'), 
-                                       bg='#007AFF', fg='white',
-                                       relief='flat', bd=0, padx=20, pady=8,
-                                       cursor='hand2',
-                                       command=lambda path=album_path: self.open_callback(path))
-                    open_btn.pack(side='left', padx=(0, 10))
-                    
-                    # 收藏按钮 - 改进样式
-                    is_fav = self.is_favorite(album_path) if self.is_favorite else False
-                    fav_text = "⭐ 已收藏" if is_fav else "☆ 收藏"
-                    fav_color = '#FF9500' if is_fav else '#8E8E93'
-                    fav_btn = tk.Button(btn_frame, text=fav_text, 
-                                      font=get_safe_font('Arial', 11), 
-                                      bg=fav_color, fg='white',
-                                      relief='flat', bd=0, padx=15, pady=8,
-                                      cursor='hand2',
-                                      command=lambda path=album_path: self.favorite_callback(path))
-                    fav_btn.pack(side='left')
-                    
-                    # 异步加载封面图片
-                    self._load_cover_image(album_path, 
-                                         lambda photo, label=cover_label: self._update_cover(label, photo))
-                    
-                    # 添加悬停效果
-                    self._add_hover_effects(album_frame, open_btn, fav_btn)
+                    card = self._create_modern_album_card(grid_container, album)
+                    card.grid(row=row, column=col, 
+                             padx=self.card_spacing//2, 
+                             pady=self.card_spacing//2, 
+                             sticky='nsew')
                         
                 except Exception as e:
                     print(f"显示相册项时出错 {i}: {e}")
                     continue
+            
+            # 配置网格权重
+            for i in range(self.columns):
+                grid_container.grid_columnconfigure(i, weight=1)
             
             # 更新滚动区域
             self.scrollable_frame.update_idletasks()
             self.canvas.configure(scrollregion=self.canvas.bbox("all"))
                 
         except Exception as e:
-            print(f"显示相册列表时出错: {e}")
-            # 创建最基本的显示
-            self._create_fallback_display(albums)
+            print(f"创建相册卡片时出错: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _create_modern_album_card(self, parent, album):
+        """创建现代化单个相册卡片"""
+        try:
+            album_path = album['path']
+            album_name = album['name']
+            image_count = album.get('image_count', 0)
+            
+            # 卡片主容器 - 现代化样式
+            card = tk.Frame(parent, 
+                          bg=self.style_manager.colors['card_bg'],
+                          relief='flat',
+                          bd=1,
+                          highlightthickness=0)
+            
+            # 添加卡片悬浮效果
+            self.style_manager.create_hover_effect(
+                card,
+                self.style_manager.colors['card_hover'],
+                self.style_manager.colors['card_bg']
+            )
+            
+            # 封面区域
+            cover_frame = tk.Frame(card, 
+                                 bg=self.style_manager.colors['card_bg'], 
+                                 height=200)
+            cover_frame.pack(fill='x', padx=self.card_padding, pady=(self.card_padding, 8))
+            cover_frame.pack_propagate(False)
+            
+            # 封面图片容器
+            cover_container = tk.Frame(cover_frame, 
+                                     bg=self.style_manager.colors['bg_tertiary'],
+                                     relief='flat')
+            cover_container.pack(fill='both', expand=True)
+            
+            # 封面图片标签
+            cover_label = tk.Label(cover_container, 
+                                 bg=self.style_manager.colors['bg_tertiary'], 
+                                 text='📷\n加载中...',
+                                 font=self.style_manager.fonts['body'], 
+                                 fg=self.style_manager.colors['text_tertiary'])
+            cover_label.pack(fill='both', expand=True)
+            
+            # 异步加载封面
+            self._load_cover_image(album_path, 
+                                 lambda photo, label=cover_label: self._update_cover(label, photo))
+            
+            # 信息区域
+            info_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'])
+            info_frame.pack(fill='x', padx=self.card_padding, pady=(0, 8))
+            
+            # 相册名称
+            name_label = tk.Label(info_frame, 
+                                text=album_name,
+                                font=self.style_manager.fonts['subheading'],
+                                bg=self.style_manager.colors['card_bg'], 
+                                fg=self.style_manager.colors['text_primary'], 
+                                anchor='w')
+            name_label.pack(fill='x')
+            
+            # 统计信息容器
+            stats_frame = tk.Frame(info_frame, bg=self.style_manager.colors['card_bg'])
+            stats_frame.pack(fill='x', pady=(4, 0))
+            
+            # 图片数量
+            count_icon = tk.Label(stats_frame, 
+                                text="🖼️",
+                                font=self.style_manager.fonts['caption'],
+                                bg=self.style_manager.colors['card_bg'])
+            count_icon.pack(side='left')
+            
+            count_label = tk.Label(stats_frame, 
+                                 text=f'{image_count} 张图片',
+                                 font=self.style_manager.fonts['caption'],
+                                 bg=self.style_manager.colors['card_bg'], 
+                                 fg=self.style_manager.colors['text_secondary'])
+            count_label.pack(side='left', padx=(4, 0))
+            
+            # 路径显示（可选）
+            if len(album_path) > 50:
+                display_path = "..." + album_path[-47:]
+            else:
+                display_path = album_path
+                
+            path_label = tk.Label(info_frame, 
+                                text=display_path,
+                                font=self.style_manager.fonts['small'],
+                                bg=self.style_manager.colors['card_bg'], 
+                                fg=self.style_manager.colors['text_tertiary'], 
+                                anchor='w')
+            path_label.pack(fill='x', pady=(2, 0))
+            
+            # 为路径添加完整路径的工具提示
+            self.style_manager.add_tooltip(path_label, album_path)
+            
+            # 按钮区域
+            button_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'])
+            button_frame.pack(fill='x', padx=self.card_padding, pady=(0, self.card_padding))
+            
+            # 打开按钮
+            open_btn_style = self.style_manager.get_button_style('primary')
+            open_btn = tk.Button(button_frame, 
+                               text='📂 打开相册',
+                               command=lambda: self.open_callback(album_path),
+                               **open_btn_style,
+                               padx=12, 
+                               pady=6)
+            open_btn.pack(side='left')
+            
+            self.style_manager.create_hover_effect(
+                open_btn,
+                self.style_manager.colors['button_primary_hover'],
+                self.style_manager.colors['button_primary']
+            )
+            
+            self.style_manager.add_tooltip(open_btn, f"打开相册：{album_name}")
+            
+            # 收藏按钮
+            is_fav = self.is_favorite(album_path) if self.is_favorite else False
+            fav_text = '⭐ 已收藏' if is_fav else '☆ 收藏'
+            fav_style = self.style_manager.get_button_style('secondary')
+            
+            if is_fav:
+                fav_style['fg'] = self.style_manager.colors['warning']
+            
+            fav_btn = tk.Button(button_frame, 
+                              text=fav_text,
+                              command=lambda: self._toggle_favorite(album_path, fav_btn),
+                              **fav_style,
+                              padx=12, 
+                              pady=6)
+            fav_btn.pack(side='right')
+            
+            self.style_manager.create_hover_effect(
+                fav_btn,
+                self.style_manager.colors['button_secondary_hover'],
+                fav_style['bg']
+            )
+            
+            tooltip_text = "取消收藏" if is_fav else "添加到收藏"
+            self.style_manager.add_tooltip(fav_btn, tooltip_text)
+            
+            return card
+            
+        except Exception as e:
+            print(f"创建相册卡片时出错: {e}")
+            # 返回一个现代化的错误卡片
+            error_card = tk.Frame(parent, 
+                                bg=self.style_manager.colors['error_light'],
+                                relief='flat', 
+                                bd=1)
+            error_label = tk.Label(error_card, 
+                                 text='❌ 加载失败',
+                                 font=self.style_manager.fonts['body'],
+                                 bg=self.style_manager.colors['error_light'], 
+                                 fg=self.style_manager.colors['error'])
+            error_label.pack(pady=20)
+            return error_card
+    
+    def _toggle_favorite(self, album_path, button):
+        """切换收藏状态并更新按钮"""
+        try:
+            # 调用收藏回调
+            self.favorite_callback(album_path)
+            
+            # 更新按钮显示
+            is_fav = self.is_favorite(album_path) if self.is_favorite else False
+            fav_text = '⭐ 已收藏' if is_fav else '☆ 收藏'
+            button.configure(text=fav_text)
+            
+            if is_fav:
+                button.configure(fg=self.style_manager.colors['warning'])
+            else:
+                button.configure(fg=self.style_manager.colors['text_primary'])
+                
+        except Exception as e:
+            print(f"切换收藏状态时出错: {e}")
     
     def _add_hover_effects(self, album_frame, open_btn, fav_btn):
         """添加悬停效果"""
