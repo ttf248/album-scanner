@@ -22,11 +22,11 @@ class FallbackUIManager:
         path_entry = tk.Entry(top_frame, textvariable=self.app.path_var, width=50)
         path_entry.pack(side='left', padx=5)
         
-        # 按钮 - 添加快捷键提示
-        tk.Button(top_frame, text="浏览 (Ctrl+O)", command=self.app.browse_folder).pack(side='left', padx=2)
-        tk.Button(top_frame, text="扫描 (Ctrl+S)", command=self.app.scan_albums).pack(side='left', padx=2)
-        tk.Button(top_frame, text="最近 (Ctrl+R)", command=self.app.show_recent_albums).pack(side='left', padx=2)
-        tk.Button(top_frame, text="收藏 (Ctrl+F)", command=self.app.show_favorites).pack(side='left', padx=2)
+        # 按钮 - 移除快捷键提示
+        tk.Button(top_frame, text="浏览", command=self.app.browse_folder).pack(side='left', padx=2)
+        tk.Button(top_frame, text="扫描", command=self.app.scan_albums).pack(side='left', padx=2)
+        tk.Button(top_frame, text="最近", command=self.app.show_recent_albums).pack(side='left', padx=2)
+        tk.Button(top_frame, text="收藏", command=self.app.show_favorites).pack(side='left', padx=2)
         
         # 主内容区域
         main_frame = tk.Frame(self.app.root, bg='white')

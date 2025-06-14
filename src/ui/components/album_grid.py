@@ -250,7 +250,7 @@ class AlbumGrid:
             self.style_manager.colors['button_primary']
         )
         
-        self.style_manager.add_tooltip(start_btn, "开始选择文件夹并扫描漫画")
+        # 移除 tooltip
         
         # 默认显示空状态
         self.show_empty_state()
@@ -644,8 +644,7 @@ class AlbumGrid:
                                 height=2)  # 限制最多2行
             path_label.pack(fill='x', pady=(2, 0))
             
-            # 为路径添加完整路径的工具提示
-            self.style_manager.add_tooltip(path_label, album_path)
+            # 移除路径的 tooltip
             
             # 按钮区域
             button_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'])
@@ -667,7 +666,7 @@ class AlbumGrid:
                 self.style_manager.colors['button_primary']
             )
             
-            self.style_manager.add_tooltip(open_btn, f"打开漫画：{album_name}")
+            # 移除打开按钮的 tooltip
             
             # 收藏按钮
             is_fav = self.is_favorite(album_path) if self.is_favorite else False
@@ -691,8 +690,7 @@ class AlbumGrid:
                 fav_style['bg']
             )
             
-            tooltip_text = "取消收藏" if is_fav else "添加到收藏"
-            self.style_manager.add_tooltip(fav_btn, tooltip_text)
+            # 移除收藏按钮的 tooltip
             
             return card
             

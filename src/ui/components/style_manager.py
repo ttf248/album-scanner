@@ -23,7 +23,6 @@ class StyleManager:
     def __init__(self, root, style=None):
         self.root = root
         self.style = style
-        self.current_tooltip = None  # 跟踪当前显示的提示窗口
         self.logger = get_logger('ui.style')
         
         # 现代化颜色主题 - 基于 Arc 主题的配色方案
@@ -245,67 +244,3 @@ class StyleManager:
         
         widget.bind('<Enter>', on_enter)
         widget.bind('<Leave>', on_leave)
-    
-    def add_tooltip(self, widget, text):
-        """为控件添加工具提示 - 优化版本"""
-        def show_tooltip(event):
-            # 如果已经有提示窗口，先销毁它
-            if self.current_tooltip:
-                try:
-                    self.current_tooltip.destroy()
-                except:
-                    pass
-                self.current_tooltip = None
-            
-            # 增加显示延迟，减少频繁弹出
-            def create_tooltip():
-                try:
-                    # 再次检查，确保鼠标仍在控件上
-                    if not widget.winfo_exists():
-                        return
-                    
-                    # 创建新的提示窗口
-                    self.current_tooltip = tk.Toplevel()
-                    self.current_tooltip.wm_overrideredirect(True)
-                    
-                    # 计算位置
-                    x = event.x_root + 10
-                    y = event.y_root + 10
-                    
-                    # 简单的边界检查
-                    screen_width = self.current_tooltip.winfo_screenwidth()
-                    if x + 200 > screen_width:  # 假设提示窗口宽度为200
-                        x = event.x_root - 200 - 10
-                    
-                    self.current_tooltip.wm_geometry(f"+{x}+{y}")
-                    
-                    # 简化样式的标签
-                    label = tk.Label(self.current_tooltip, text=text,
-                                   background=self.colors['text_primary'],
-                                   foreground=self.colors['text_white'],
-                                   font=self.fonts['small'],
-                                   relief='flat',
-                                   padx=6, pady=3)
-                    label.pack()
-                    
-                    # 设置自动隐藏定时器
-                    self.current_tooltip.after(3000, hide_tooltip)  # 3秒后自动隐藏
-                    
-                except Exception as e:
-                    log_error(f"创建工具提示时出错: {e}", 'ui.style')
-            
-            # 延迟创建，减少频繁弹出
-            widget.after(600, create_tooltip)  # 从立即显示改为600ms延迟
-        
-        def hide_tooltip(event=None):
-            # 鼠标离开时立即销毁提示窗口
-            if self.current_tooltip:
-                try:
-                    self.current_tooltip.destroy()
-                except:
-                    pass
-                finally:
-                    self.current_tooltip = None
-        
-        widget.bind('<Enter>', show_tooltip)
-        widget.bind('<Leave>', hide_tooltip)

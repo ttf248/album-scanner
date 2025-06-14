@@ -81,9 +81,6 @@ class NavigationBar:
         
         if not hasattr(self.style_manager, 'create_hover_effect'):
             self.style_manager.create_hover_effect = self._default_create_hover_effect
-        
-        if not hasattr(self.style_manager, 'add_tooltip'):
-            self.style_manager.add_tooltip = self._default_add_tooltip
     
     def _default_get_button_style(self, button_type):
         """默认按钮样式"""
@@ -122,14 +119,6 @@ class NavigationBar:
         
         widget.bind('<Enter>', on_enter)
         widget.bind('<Leave>', on_leave)
-    
-    def _default_add_tooltip(self, widget, text):
-        """默认工具提示"""
-        def show_tooltip(event):
-            # 简单的工具提示实现
-            pass
-        
-        widget.bind('<Enter>', show_tooltip)
     
     def create_widgets(self):
         """创建现代化导航栏组件"""
@@ -219,7 +208,6 @@ class NavigationBar:
             self.style_manager.colors['accent_light'],
             self.style_manager.colors['card_bg']
         )
-        self.style_manager.add_tooltip(home_btn, "返回扫描结果首页")
         
         # 分隔符和当前位置将由update_breadcrumb动态更新
         self.current_location_label = tk.Label(breadcrumb_container,
@@ -299,42 +287,37 @@ class NavigationBar:
     
     def create_modern_buttons(self, parent):
         """创建现代化导航按钮"""
-        # 按钮配置：文本、回调函数、类型、快捷键、工具提示
+        # 按钮配置：文本、回调函数、类型、快捷键（仅显示）
         buttons_config = [
             {
                 'text': '📁 选择文件夹',
                 'command': self.browse_callback,
                 'type': 'primary',
-                'shortcut': 'Ctrl+O',
-                'tooltip': '选择要扫描的文件夹 (Ctrl+O)'
+                'shortcut': 'Ctrl+O'
             },
             {
                 'text': '🔍 扫描漫画',
                 'command': self.scan_callback,
                 'type': 'primary',
-                'shortcut': 'Ctrl+S',
-                'tooltip': '开始扫描选定文件夹中的漫画 (Ctrl+S)'
+                'shortcut': 'Ctrl+S'
             },
             {
                 'text': '🕒 最近浏览',
                 'command': self.recent_callback,
                 'type': 'secondary',
-                'shortcut': 'Ctrl+R',
-                'tooltip': '查看最近浏览的漫画 (Ctrl+R)'
+                'shortcut': 'Ctrl+R'
             },
             {
                 'text': '⭐ 我的收藏',
                 'command': self.favorites_callback,
                 'type': 'secondary',
-                'shortcut': 'Ctrl+F',
-                'tooltip': '查看收藏的漫画 (Ctrl+F)'
+                'shortcut': 'Ctrl+F'
             },
             {
                 'text': '⚙️ 设置',
                 'command': lambda: self.settings_callback() if self.settings_callback else None,
                 'type': 'secondary',
                 'shortcut': 'Ctrl+,',
-                'tooltip': '打开设置对话框 (Ctrl+,)'
             }
         ]
         
@@ -370,9 +353,6 @@ class NavigationBar:
                     self.style_manager.colors['button_secondary_hover'],
                     self.style_manager.colors['button_secondary']
                 )
-            
-            # 添加工具提示
-            self.style_manager.add_tooltip(btn, config['tooltip'])
             
             # 快捷键标签
             if config.get('shortcut'):
@@ -423,14 +403,6 @@ class NavigationBar:
                                    justify='left')
         self.path_display.pack(side='left', fill='x', expand=True)
         
-        # 为路径显示添加悬浮提示（显示完整路径）
-        def show_full_path(event):
-            full_path = self.path_var.get()
-            if full_path:
-                self.style_manager.add_tooltip(self.path_display, full_path)
-        
-        self.path_display.bind('<Enter>', show_full_path)
-        
         # 路径复制按钮
         copy_btn = tk.Button(path_content,
                            text="📋",
@@ -444,7 +416,6 @@ class NavigationBar:
                            cursor='hand2')
         copy_btn.pack(side='right')
         
-        self.style_manager.add_tooltip(copy_btn, "复制路径到剪贴板")
         self.style_manager.create_hover_effect(
             copy_btn,
             self.style_manager.colors['accent_light'],
