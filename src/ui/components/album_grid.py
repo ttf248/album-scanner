@@ -391,7 +391,7 @@ class AlbumGrid:
         except Exception as e:
             print(f"更新封面图片失败: {e}")
         
-    def _load_cover_image(self, album_path, callback, size=(210, 280)):
+    def _load_cover_image(self, album_path, callback, size=(320, 350)):
         """异步加载封面图片"""
         def load_cover():
             try:
@@ -404,7 +404,7 @@ class AlbumGrid:
                         
                         # 根据尺寸选择缓存
                         cache_key = f"{cover_path}_{size[0]}x{size[1]}"
-                        target_cache = self.large_cover_cache if size[0] > 210 else self.cover_cache
+                        target_cache = self.large_cover_cache if size[0] > 320 else self.cover_cache
                         
                         # 检查缓存
                         if cache_key in target_cache:
@@ -670,12 +670,12 @@ class AlbumGrid:
             if not self.scrollable_frame:
                 return
             
-            # 计算响应式列数 - 优化瀑布流布局
+            # 计算响应式列数 - 基于固定卡片宽度420px
             canvas_width = self.canvas.winfo_width()
             if canvas_width > 1:
-                # 根据卡片宽度和间距计算最佳列数
+                # 根据固定卡片宽度420和间距计算最佳列数
                 available_width = canvas_width - (self.card_spacing * 2)  # 减去左右边距
-                card_total_width = self.card_width + self.card_spacing
+                card_total_width = 420 + self.card_spacing
                 calculated_columns = max(self.min_columns, available_width // card_total_width)
                 self.columns = min(self.max_columns, calculated_columns)
             else:
@@ -733,12 +733,15 @@ class AlbumGrid:
             album_name = album['name']
             image_count = album.get('image_count', 0)
             
-            # 卡片主容器 - 现代化样式
+            # 卡片主容器 - 固定尺寸420x560
             card = tk.Frame(parent, 
                           bg=self.style_manager.colors['card_bg'],
                           relief='flat',
                           bd=1,
-                          highlightthickness=0)
+                          highlightthickness=0,
+                          width=420,
+                          height=560)
+            card.pack_propagate(False)  # 禁止子组件改变卡片大小
             
             # 添加卡片悬浮效果
             self.style_manager.create_hover_effect(
@@ -747,10 +750,10 @@ class AlbumGrid:
                 self.style_manager.colors['card_bg']
             )
             
-            # 封面区域 - 调整为竖屏比例 (3:4)
+            # 封面区域 - 适应420x560卡片尺寸
             cover_frame = tk.Frame(card, 
                                  bg=self.style_manager.colors['card_bg'], 
-                                 height=280)  # 增加高度以适应竖屏比例
+                                 height=350)  # 调整高度适应新卡片尺寸
             cover_frame.pack(fill='x', padx=self.card_padding, pady=(self.card_padding, 8))
             cover_frame.pack_propagate(False)
             
@@ -783,22 +786,24 @@ class AlbumGrid:
             cover_label.bind('<Enter>', on_cover_enter)
             cover_label.bind('<Leave>', on_cover_leave)
             
-            # 异步加载封面 - 使用竖屏比例 (3:4)
+            # 异步加载封面 - 适应新卡片尺寸
             self._load_cover_image(album_path, 
                                  lambda photo, label=cover_label: self._update_cover(label, photo),
-                                 size=(210, 280))  # 竖屏比例尺寸
+                                 size=(320, 350))  # 适应420x560卡片的封面尺寸
             
             # 信息区域
             info_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'])
             info_frame.pack(fill='x', padx=self.card_padding, pady=(0, 8))
             
-            # 相册名称
+            # 相册名称 - 支持多行显示
             name_label = tk.Label(info_frame, 
                                 text=album_name,
                                 font=self.style_manager.fonts['subheading'],
                                 bg=self.style_manager.colors['card_bg'], 
                                 fg=self.style_manager.colors['text_primary'], 
-                                anchor='w')
+                                anchor='w',
+                                wraplength=360,  # 设置换行宽度
+                                justify='left')  # 左对齐
             name_label.pack(fill='x')
             
             # 统计信息容器
@@ -819,18 +824,15 @@ class AlbumGrid:
                                  fg=self.style_manager.colors['text_secondary'])
             count_label.pack(side='left', padx=(4, 0))
             
-            # 路径显示（可选）
-            if len(album_path) > 50:
-                display_path = "..." + album_path[-47:]
-            else:
-                display_path = album_path
-                
+            # 路径显示 - 支持多行显示
             path_label = tk.Label(info_frame, 
-                                text=display_path,
+                                text=album_path,
                                 font=self.style_manager.fonts['small'],
                                 bg=self.style_manager.colors['card_bg'], 
                                 fg=self.style_manager.colors['text_tertiary'], 
-                                anchor='w')
+                                anchor='w',
+                                wraplength=360,  # 设置换行宽度
+                                justify='left')  # 左对齐
             path_label.pack(fill='x', pady=(2, 0))
             
             # 为路径添加完整路径的工具提示
