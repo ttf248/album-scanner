@@ -10,7 +10,7 @@ class ConfigManager:
         self.logger = get_logger('core.config')
         
         # 使用pathlib处理配置目录
-        self.config_dir = Path.home() / '.album_scanner'
+        self.config_dir = Path.home() / '.comic_reader'
         self.config_file = self.config_dir / 'settings.json'
         
         # 确保配置目录存在
