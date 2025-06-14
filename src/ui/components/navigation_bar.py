@@ -25,46 +25,163 @@ class NavigationBar:
             style = ttk.Style()
             self.style_manager = StyleManager(parent, style)
         
+        # 确保样式管理器正确初始化
+        self._ensure_style_manager()
+        
         self.create_widgets()
+    
+    def _ensure_style_manager(self):
+        """确保样式管理器正确初始化，提供默认配置"""
+        # 检查是否有colors属性
+        if not hasattr(self.style_manager, 'colors') or not self.style_manager.colors:
+            # 提供默认颜色配置
+            self.style_manager.colors = {
+                'bg': '#f5f5f5',
+                'card_bg': '#ffffff',
+                'text_primary': '#333333',
+                'text_secondary': '#666666',
+                'text_tertiary': '#999999',
+                'accent': '#007acc',
+                'accent_light': '#e6f3ff',
+                'button_primary': '#007acc',
+                'button_primary_hover': '#005999',
+                'button_secondary': '#f0f0f0',
+                'button_secondary_hover': '#e0e0e0',
+                'bg_tertiary': '#f8f9fa'
+            }
+        
+        # 检查是否有fonts属性
+        if not hasattr(self.style_manager, 'fonts') or not self.style_manager.fonts:
+            # 提供默认字体配置
+            self.style_manager.fonts = {
+                'body': ('Segoe UI', 10),
+                'caption': ('Segoe UI', 9),
+                'small': ('Segoe UI', 8),
+                'mono': ('Consolas', 9)
+            }
+        
+        # 检查是否有dimensions属性
+        if not hasattr(self.style_manager, 'dimensions') or not self.style_manager.dimensions:
+            # 提供默认尺寸配置
+            self.style_manager.dimensions = {
+                'padding_sm': 4,
+                'padding_lg': 12,
+                'padding_xl': 16
+            }
+        
+        # 确保方法存在
+        if not hasattr(self.style_manager, 'get_button_style'):
+            self.style_manager.get_button_style = self._default_get_button_style
+        
+        if not hasattr(self.style_manager, 'create_hover_effect'):
+            self.style_manager.create_hover_effect = self._default_create_hover_effect
+        
+        if not hasattr(self.style_manager, 'add_tooltip'):
+            self.style_manager.add_tooltip = self._default_add_tooltip
+    
+    def _default_get_button_style(self, button_type):
+        """默认按钮样式"""
+        if button_type == 'primary':
+            return {
+                'bg': self.style_manager.colors['button_primary'],
+                'fg': 'white',
+                'font': self.style_manager.fonts['body'],
+                'relief': 'flat',
+                'borderwidth': 0,
+                'cursor': 'hand2'
+            }
+        else:
+            return {
+                'bg': self.style_manager.colors['button_secondary'],
+                'fg': self.style_manager.colors['text_primary'],
+                'font': self.style_manager.fonts['body'],
+                'relief': 'flat',
+                'borderwidth': 0,
+                'cursor': 'hand2'
+            }
+    
+    def _default_create_hover_effect(self, widget, hover_color, normal_color):
+        """默认悬浮效果"""
+        def on_enter(e):
+            try:
+                widget.configure(bg=hover_color)
+            except:
+                pass
+        
+        def on_leave(e):
+            try:
+                widget.configure(bg=normal_color)
+            except:
+                pass
+        
+        widget.bind('<Enter>', on_enter)
+        widget.bind('<Leave>', on_leave)
+    
+    def _default_add_tooltip(self, widget, text):
+        """默认工具提示"""
+        def show_tooltip(event):
+            # 简单的工具提示实现
+            pass
+        
+        widget.bind('<Enter>', show_tooltip)
     
     def create_widgets(self):
         """创建现代化导航栏组件"""
-        # 导航栏主框架 - 使用卡片样式
-        self.nav_frame = tk.Frame(self.parent, 
-                                bg=self.style_manager.colors['card_bg'], 
-                                height=120,  # 增加高度以容纳面包屑
-                                relief='flat',
-                                bd=1)
-        self.nav_frame.pack(side='top', fill='x', padx=16, pady=(16, 8))
-        self.nav_frame.pack_propagate(False)
-        
-        # 内容框架
-        content_frame = tk.Frame(self.nav_frame, bg=self.style_manager.colors['card_bg'])
-        content_frame.pack(fill='both', expand=True, 
-                          padx=self.style_manager.dimensions['padding_xl'], 
-                          pady=self.style_manager.dimensions['padding_lg'])
-        
-        # 面包屑导航区域
-        self.breadcrumb_frame = tk.Frame(content_frame, bg=self.style_manager.colors['card_bg'])
-        self.breadcrumb_frame.pack(side='top', fill='x', pady=(0, 8))
-        
-        # 创建面包屑导航
-        self.create_breadcrumb()
-        
-        # 顶部按钮区域
-        button_frame = tk.Frame(content_frame, bg=self.style_manager.colors['card_bg'])
-        button_frame.pack(side='top', fill='x')
-        
-        # 创建现代化按钮
-        self.create_modern_buttons(button_frame)
-        
-        # 路径显示区域
-        path_frame = tk.Frame(content_frame, bg=self.style_manager.colors['card_bg'])
-        path_frame.pack(side='bottom', fill='x', pady=(12, 0))
-        
-        # 路径标签和显示
-        self.create_path_display(path_frame)
+        try:
+            # 导航栏主框架 - 使用卡片样式
+            self.nav_frame = tk.Frame(self.parent, 
+                                    bg=self.style_manager.colors.get('card_bg', '#ffffff'), 
+                                    height=120,  # 增加高度以容纳面包屑
+                                    relief='flat',
+                                    bd=1)
+            self.nav_frame.pack(side='top', fill='x', padx=16, pady=(16, 8))
+            self.nav_frame.pack_propagate(False)
+            
+            # 内容框架
+            content_frame = tk.Frame(self.nav_frame, bg=self.style_manager.colors.get('card_bg', '#ffffff'))
+            content_frame.pack(fill='both', expand=True, 
+                              padx=self.style_manager.dimensions.get('padding_xl', 16), 
+                              pady=self.style_manager.dimensions.get('padding_lg', 12))
+            
+            # 面包屑导航区域
+            self.breadcrumb_frame = tk.Frame(content_frame, bg=self.style_manager.colors.get('card_bg', '#ffffff'))
+            self.breadcrumb_frame.pack(side='top', fill='x', pady=(0, 8))
+            
+            # 创建面包屑导航
+            self.create_breadcrumb()
+            
+            # 顶部按钮区域
+            button_frame = tk.Frame(content_frame, bg=self.style_manager.colors.get('card_bg', '#ffffff'))
+            button_frame.pack(side='top', fill='x')
+            
+            # 创建现代化按钮
+            self.create_modern_buttons(button_frame)
+            
+            # 路径显示区域
+            path_frame = tk.Frame(content_frame, bg=self.style_manager.colors.get('card_bg', '#ffffff'))
+            path_frame.pack(side='bottom', fill='x', pady=(12, 0))
+            
+            # 路径标签和显示
+            self.create_path_display(path_frame)
+        except Exception as e:
+            print(f"创建导航栏组件时出错: {e}")
+            # 创建简化版本
+            self._create_simple_widgets()
     
+    def _create_simple_widgets(self):
+        """创建简化版导航栏（错误恢复）"""
+        self.nav_frame = tk.Frame(self.parent, bg='#ffffff', height=80)
+        self.nav_frame.pack(side='top', fill='x', padx=16, pady=(16, 8))
+        
+        # 简单按钮
+        tk.Button(self.nav_frame, text='选择文件夹', command=self.browse_callback).pack(side='left', padx=5)
+        tk.Button(self.nav_frame, text='扫描漫画', command=self.scan_callback).pack(side='left', padx=5)
+        tk.Button(self.nav_frame, text='最近浏览', command=self.recent_callback).pack(side='left', padx=5)
+        tk.Button(self.nav_frame, text='我的收藏', command=self.favorites_callback).pack(side='left', padx=5)
+        
+        # 简单路径显示
+        tk.Label(self.nav_frame, textvariable=self.path_var).pack(side='bottom', fill='x')
+
     def create_breadcrumb(self):
         """创建面包屑导航"""
         # 清空现有面包屑
@@ -157,7 +274,7 @@ class NavigationBar:
             },
             {
                 'text': '⚙️ 设置',
-                'command': self.settings_callback,
+                'command': lambda: self.settings_callback() if self.settings_callback else None,
                 'type': 'secondary',
                 'shortcut': 'Ctrl+,',
                 'tooltip': '打开设置对话框 (Ctrl+,)'

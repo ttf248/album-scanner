@@ -166,6 +166,7 @@ class PhotoAlbumApp:
         self.root.bind('<Control-s>', lambda e: self.scan_albums())
         self.root.bind('<Control-r>', lambda e: self.show_recent_albums())
         self.root.bind('<Control-f>', lambda e: self.show_favorites())
+        self.root.bind('<Control-comma>', lambda e: self.show_settings())  # Ctrl+, 设置快捷键
         self.root.bind('<F5>', lambda e: self.scan_albums())
         
     def browse_folder(self):
