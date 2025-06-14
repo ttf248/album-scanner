@@ -31,15 +31,6 @@ class AlbumGrid:
         # 使用全局图片缓存
         self.image_cache = get_image_cache()
         
-        # 移除旧的缓存和线程池
-        # self.cover_cache = {}
-        # self.large_cover_cache = {}
-        # self.executor = ThreadPoolExecutor(max_workers=3)
-        
-        # 简化预览功能 - 减少复杂度
-        self.preview_window = None
-        self.preview_timer = None
-        
         # 防抖动布局参数
         self.layout_timer = None
         self.layout_delay = 300  # 300ms防抖
@@ -419,78 +410,6 @@ class AlbumGrid:
             print(f"查找封面图片失败 {album_path}: {e}")
             callback(None)
     
-    def _show_preview_window(self, event, album_path, album_name):
-        """显示预览浮动窗口 - 简化版本减少卡顿"""
-        try:
-            # 立即清理之前的预览窗口
-            self._hide_preview_window()
-            
-            # 增加延迟时间，减少频繁弹出
-            self.preview_timer = self.parent.after(800,  # 从500ms增加到800ms
-                lambda: self._create_simple_preview_window(event, album_path, album_name))
-            
-        except Exception as e:
-            print(f"显示预览窗口时出错: {e}")
-    
-    def _create_simple_preview_window(self, event, album_path, album_name):
-        """创建简化版预览窗口 - 减少复杂度"""
-        try:
-            # 再次确保没有现有窗口
-            if self.preview_window and self.preview_window.winfo_exists():
-                self.preview_window.destroy()
-                self.preview_window = None
-            
-            # 创建简化的预览窗口
-            self.preview_window = tk.Toplevel(self.parent)
-            self.preview_window.withdraw()  # 先隐藏
-            
-            # 设置窗口属性
-            self.preview_window.overrideredirect(True)  # 无边框
-            self.preview_window.configure(bg='white', relief='solid', bd=1)
-            self.preview_window.attributes('-topmost', True)
-            
-            # 简化内容 - 只显示基本信息
-            content_frame = tk.Frame(self.preview_window, bg='white', padx=8, pady=8)
-            content_frame.pack()
-            
-            # 只显示标题，不加载大图片
-            title_label = tk.Label(content_frame, text=album_name,
-                                 font=get_safe_font('Arial', 11, 'bold'),
-                                 bg='white', fg='black')
-            title_label.pack()
-            
-            # 简单的提示文字，而不是图片
-            hint_label = tk.Label(content_frame, text="🖼️ 点击查看详情",
-                                font=get_safe_font('Arial', 9),
-                                bg='white', fg='gray')
-            hint_label.pack(pady=4)
-            
-            # 计算位置
-            x = event.x_root + 15
-            y = event.y_root + 15
-            
-            # 简单的边界检查
-            screen_width = self.preview_window.winfo_screenwidth()
-            screen_height = self.preview_window.winfo_screenheight()
-            
-            window_width = 200  # 简化后的窗口更小
-            window_height = 80
-            
-            if x + window_width > screen_width:
-                x = event.x_root - window_width - 15
-            if y + window_height > screen_height:
-                y = event.y_root - window_height - 15
-            
-            self.preview_window.geometry(f"+{x}+{y}")
-            self.preview_window.deiconify()
-            
-            # 简化事件绑定
-            self.preview_window.bind('<Leave>', lambda e: self._schedule_hide_preview())
-            
-        except Exception as e:
-            print(f"创建简化预览窗口时出错: {e}")
-            self._hide_preview_window()
-    
     def _create_modern_album_cards(self, albums):
         """创建现代化漫画卡片 - 优化性能"""
         try:
@@ -623,21 +542,6 @@ class AlbumGrid:
                                  font=self.style_manager.fonts['body'], 
                                  fg=self.style_manager.colors['text_tertiary'])
             cover_label.pack(fill='both', expand=True)
-            
-            # 绑定封面预览事件
-            def on_cover_enter(event):
-                self._show_preview_window(event, album_path, album_name)
-            
-            def on_cover_leave(event):
-                self._schedule_hide_preview()
-            
-            # 为封面相关组件绑定事件
-            cover_frame.bind('<Enter>', on_cover_enter)
-            cover_frame.bind('<Leave>', on_cover_leave)
-            cover_container.bind('<Enter>', on_cover_enter)
-            cover_container.bind('<Leave>', on_cover_leave)
-            cover_label.bind('<Enter>', on_cover_enter)
-            cover_label.bind('<Leave>', on_cover_leave)
             
             # 异步加载封面 - 适应新卡片尺寸
             self._load_cover_image(album_path, 
@@ -868,21 +772,9 @@ class AlbumGrid:
         except Exception as e:
             print(f"更新封面时出错: {e}")
     
-    def _schedule_hide_preview(self):
-        """计划隐藏预览窗口"""
-        # 取消之前的隐藏定时器
-        if self.preview_timer:
-            self.parent.after_cancel(self.preview_timer)
-            
-        # 延迟隐藏，给用户时间移动到预览窗口
-        self.preview_timer = self.parent.after(200, self._hide_preview_window)
-
     def __del__(self):
         """清理资源"""
         try:
-            # 清理预览窗口
-            self._hide_preview_window()
-            
             # 取消防抖定时器
             if hasattr(self, 'layout_timer') and self.layout_timer:
                 try:
