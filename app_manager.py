@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, Toplevel
 import os
 from pathlib import Path
-from config import ConfigManager
-from image_utils import ImageProcessor
-from ui_components import StyleManager, NavigationBar, AlbumGrid, ImageViewer, StatusBar
+from src.core.config import ConfigManager
+from src.utils.image_utils import ImageProcessor
+from src.ui.ui_components import StyleManager, NavigationBar, AlbumGrid, ImageViewer, StatusBar
 
 class PhotoAlbumApp:
     """现代化相册扫描器主应用程序"""
@@ -81,7 +81,7 @@ class PhotoAlbumApp:
             import traceback
             traceback.print_exc()
             # 创建简化版本的UI
-            from fallback_ui import FallbackUIManager
+            from src.ui.fallback_ui import FallbackUIManager
             fallback_manager = FallbackUIManager(self)
             fallback_manager.create_fallback_ui()
 
@@ -120,19 +120,19 @@ class PhotoAlbumApp:
             
     def scan_albums(self):
         """扫描相册"""
-        from album_scanner import AlbumScannerService
+        from src.core.album_scanner import AlbumScannerService
         scanner = AlbumScannerService(self)
         scanner.scan_albums()
     
     def show_recent_albums(self):
         """显示最近浏览的相册"""
-        from album_history import AlbumHistoryManager
+        from src.core.album_history import AlbumHistoryManager
         history_manager = AlbumHistoryManager(self)
         history_manager.show_recent_albums()
     
     def show_favorites(self):
         """显示收藏的相册"""
-        from album_favorites import AlbumFavoritesManager
+        from src.core.album_favorites import AlbumFavoritesManager
         favorites_manager = AlbumFavoritesManager(self)
         favorites_manager.show_favorites()
     
@@ -151,7 +151,7 @@ class PhotoAlbumApp:
             
     def open_album(self, folder_path):
         """打开相册查看"""
-        from album_viewer import AlbumViewerManager
+        from src.core.album_viewer import AlbumViewerManager
         viewer_manager = AlbumViewerManager(self)
         viewer_manager.open_album(folder_path)
 

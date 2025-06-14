@@ -1,7 +1,7 @@
 import os
 from tkinter import messagebox, Toplevel
-from image_utils import ImageProcessor
-from ui_components import ImageViewer, get_safe_font
+from ..utils.image_utils import ImageProcessor
+from ..ui.ui_components import ImageViewer, get_safe_font
 from PIL import Image, ImageTk
 
 class AlbumViewerManager:
