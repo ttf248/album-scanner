@@ -81,7 +81,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # 检查 release 是否存在
+          if ! gh release view ${{ github.event.release.tag_name }} --repo ${{ github.repository }} > /dev/null 2>&1; then
+            echo "Release ${{ github.event.release.tag_name }} not found"
+            exit 1
+          fi
+          
+          # 上传文件到 release
           gh release upload ${{ github.event.release.tag_name }} \
             ./dist/ubuntu/album-scanner-linux \
             ./dist/windows/album-scanner-windows.exe \
-            --repo ${{ github.repository }}
+            --repo ${{ github.repository }} \
+            --clobber
