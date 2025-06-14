@@ -20,14 +20,14 @@ class SettingsDialog:
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
-        # 居中显示
-        self.center_window()
-        
         # 创建界面
         self.create_widgets()
         
         # 加载当前配置
         self.load_settings()
+        
+        # 界面创建完成后居中显示
+        self.center_window()
         
     def center_window(self):
         """将窗口居中显示"""
@@ -43,15 +43,15 @@ class SettingsDialog:
         # 主容器
         main_frame = tk.Frame(self.dialog)
         if self.style_manager:
-            main_frame.configure(bg=self.style_manager.colors['bg'])
+            main_frame.configure(bg=self.style_manager.colors['bg_primary'])
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
         # 标题
         title_label = tk.Label(main_frame, text="应用设置", font=('Microsoft YaHei', 16, 'bold'))
         if self.style_manager:
             title_label.configure(
-                bg=self.style_manager.colors['bg'],
-                fg=self.style_manager.colors['text']
+                bg=self.style_manager.colors['bg_primary'],
+                fg=self.style_manager.colors['text_primary']
             )
         title_label.pack(pady=(0, 20))
         
@@ -59,8 +59,8 @@ class SettingsDialog:
         album_frame = tk.LabelFrame(main_frame, text="相册切换设置", font=('Microsoft YaHei', 12))
         if self.style_manager:
             album_frame.configure(
-                bg=self.style_manager.colors['bg'],
-                fg=self.style_manager.colors['text']
+                bg=self.style_manager.colors['bg_primary'],
+                fg=self.style_manager.colors['text_primary']
             )
         album_frame.pack(fill='x', pady=(0, 15))
         
@@ -74,8 +74,8 @@ class SettingsDialog:
         )
         if self.style_manager:
             auto_switch_cb.configure(
-                bg=self.style_manager.colors['bg'],
-                fg=self.style_manager.colors['text'],
+                bg=self.style_manager.colors['bg_primary'],
+                fg=self.style_manager.colors['text_primary'],
                 selectcolor=self.style_manager.colors['card_bg']
             )
         auto_switch_cb.pack(anchor='w', padx=10, pady=5)
@@ -89,7 +89,7 @@ class SettingsDialog:
         )
         if self.style_manager:
             desc_label.configure(
-                bg=self.style_manager.colors['bg'],
+                bg=self.style_manager.colors['bg_primary'],
                 fg=self.style_manager.colors['text_secondary']
             )
         desc_label.pack(anchor='w', padx=25, pady=(0, 10))
@@ -98,8 +98,8 @@ class SettingsDialog:
         notification_frame = tk.LabelFrame(main_frame, text="提示设置", font=('Microsoft YaHei', 12))
         if self.style_manager:
             notification_frame.configure(
-                bg=self.style_manager.colors['bg'],
-                fg=self.style_manager.colors['text']
+                bg=self.style_manager.colors['bg_primary'],
+                fg=self.style_manager.colors['text_primary']
             )
         notification_frame.pack(fill='x', pady=(0, 15))
         
@@ -113,8 +113,8 @@ class SettingsDialog:
         )
         if self.style_manager:
             notification_cb.configure(
-                bg=self.style_manager.colors['bg'],
-                fg=self.style_manager.colors['text'],
+                bg=self.style_manager.colors['bg_primary'],
+                fg=self.style_manager.colors['text_primary'],
                 selectcolor=self.style_manager.colors['card_bg']
             )
         notification_cb.pack(anchor='w', padx=10, pady=5)
@@ -128,7 +128,7 @@ class SettingsDialog:
         )
         if self.style_manager:
             notif_desc_label.configure(
-                bg=self.style_manager.colors['bg'],
+                bg=self.style_manager.colors['bg_primary'],
                 fg=self.style_manager.colors['text_secondary']
             )
         notif_desc_label.pack(anchor='w', padx=25, pady=(0, 10))
@@ -136,7 +136,7 @@ class SettingsDialog:
         # 按钮区域
         button_frame = tk.Frame(main_frame)
         if self.style_manager:
-            button_frame.configure(bg=self.style_manager.colors['bg'])
+            button_frame.configure(bg=self.style_manager.colors['bg_primary'])
         button_frame.pack(fill='x', pady=(20, 0))
         
         # 取消按钮
@@ -211,4 +211,10 @@ class SettingsDialog:
         
     def show(self):
         """显示对话框"""
+        # 确保窗口可见并置于前台
+        self.dialog.deiconify()
+        self.dialog.lift()
+        self.dialog.focus_set()
+        
+        # 等待窗口关闭
         self.dialog.wait_window()
