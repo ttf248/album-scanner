@@ -50,7 +50,7 @@ jobs:
       - name: Build executable (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          pyinstaller --onefile --optimize=2 --name comic-reader main.py
+          pyinstaller --onefile --optimize=2 --strip --upx-dir=. --name comic-reader main.py
 
       # 上传构建工件
       - name: Upload artifact
