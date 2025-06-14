@@ -25,13 +25,21 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
       # 安装依赖
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller>=5.13.0
+
+      # 验证Python环境
+      - name: Verify Python environment
+        run: |
+          python --version
+          python -c "import encodings.aliases; print('encodings.aliases module found')"
+          pyinstaller --version
 
       # 安装UPX压缩工具 (Windows)
       - name: Install UPX (Windows)
@@ -49,6 +57,11 @@ jobs:
       # 打包为可执行文件 (使用优化的spec文件)
       - name: Build executable
         run: |
+          # 显示当前目录内容用于调试
+          ls -la
+          # 清理之前的构建
+          rm -rf build/ dist/
+          # 运行PyInstaller
           pyinstaller --clean --noconfirm album-scanner.spec
 
       # 进一步压缩可执行文件 (Windows)
