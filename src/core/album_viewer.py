@@ -50,8 +50,8 @@ class AlbumViewerManager:
         album_window = Toplevel(self.app.root)
         album_name = os.path.basename(folder_path)
         album_window.title(f"📸 相册查看器 - {album_name}")
-        album_window.geometry("1000x750")
-        album_window.minsize(800, 600)
+        album_window.geometry("1300x900")  # 增大相册查看窗口
+        album_window.minsize(1000, 700)  # 增大最小尺寸
         
         # 设置窗口图标和属性
         album_window.configure(bg='#1D1D1F')

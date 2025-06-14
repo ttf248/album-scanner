@@ -45,10 +45,10 @@ class PhotoAlbumApp:
         """设置窗口属性"""
         self.root.title("相册扫描器 - 现代化图片管理")
         
-        # 窗口大小和位置
-        window_size = self.config_manager.config.get('window_size', '1200x800')
+        # 窗口大小和位置 - 增大默认尺寸以适应新布局
+        window_size = self.config_manager.config.get('window_size', '1400x900')
         self.root.geometry(window_size)
-        self.root.minsize(900, 600)
+        self.root.minsize(1100, 700)  # 增大最小尺寸
         
         # 设置现代化主题
         try:

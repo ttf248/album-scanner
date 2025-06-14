@@ -36,11 +36,13 @@ class AlbumGrid:
         self.preview_window = None
         self.preview_timer = None
         
-        # 现代化布局参数
-        self.columns = 3
-        self.card_width = 320
-        self.card_spacing = 16
-        self.card_padding = 16
+        # 现代化布局参数 - 优化为更大的卡片和瀑布流
+        self.columns = 2  # 默认列数，会根据窗口大小动态调整
+        self.card_width = 400  # 增大卡片宽度
+        self.card_spacing = 20  # 增大间距
+        self.card_padding = 20  # 增大内边距
+        self.min_columns = 1   # 最小列数
+        self.max_columns = 6   # 最大列数
         
         # 确保初始化grid_frame
         self.grid_frame = None
@@ -96,6 +98,9 @@ class AlbumGrid:
             # 绑定鼠标滚轮事件 - 改进滚动体验
             self._bind_mousewheel()
             
+            # 绑定窗口大小变化事件 - 实现响应式瀑布流
+            self._bind_resize_events()
+            
         except Exception as e:
             print(f"创建AlbumGrid组件时出错: {e}")
             # 创建一个基本的框架作为备用
@@ -124,6 +129,25 @@ class AlbumGrid:
         if self.canvas:
             self.canvas.bind('<Enter>', _bind_to_mousewheel)
             self.canvas.bind('<Leave>', _unbind_from_mousewheel)
+    
+    def _bind_resize_events(self):
+        """绑定窗口大小变化事件"""
+        def _on_canvas_resize(event):
+            # 延迟重新布局，避免频繁调用
+            if hasattr(self, '_resize_timer'):
+                self.parent.after_cancel(self._resize_timer)
+            self._resize_timer = self.parent.after(200, self._relayout_albums)
+        
+        if self.canvas:
+            self.canvas.bind('<Configure>', _on_canvas_resize)
+    
+    def _relayout_albums(self):
+        """重新布局相册卡片"""
+        try:
+            if hasattr(self, 'albums') and self.albums:
+                self._create_modern_album_cards(self.albums)
+        except Exception as e:
+            print(f"重新布局相册时出错: {e}")
     
     def create_empty_state(self):
         """创建空状态引导页面"""
@@ -322,8 +346,8 @@ class AlbumGrid:
                             # 尝试下一张图片
                             return  # 修复: 将 continue 改为 return，因为这里不在循环中
                         
-                        # 计算缩放比例，保持宽高比
-                        target_size = (180, 180)
+                        # 计算缩放比例，保持宽高比 - 使用竖屏比例
+                        target_size = (210, 280)  # 3:4 竖屏比例
                         image.thumbnail(target_size, Image.Resampling.LANCZOS)
                         
                         # 转换为PhotoImage
@@ -367,7 +391,7 @@ class AlbumGrid:
         except Exception as e:
             print(f"更新封面图片失败: {e}")
         
-    def _load_cover_image(self, album_path, callback, size=(120, 120)):
+    def _load_cover_image(self, album_path, callback, size=(210, 280)):
         """异步加载封面图片"""
         def load_cover():
             try:
@@ -380,7 +404,7 @@ class AlbumGrid:
                         
                         # 根据尺寸选择缓存
                         cache_key = f"{cover_path}_{size[0]}x{size[1]}"
-                        target_cache = self.large_cover_cache if size[0] > 120 else self.cover_cache
+                        target_cache = self.large_cover_cache if size[0] > 210 else self.cover_cache
                         
                         # 检查缓存
                         if cache_key in target_cache:
@@ -484,11 +508,11 @@ class AlbumGrid:
                                  bg='white', fg='black')
             title_label.pack(pady=(0, 8))
             
-            # 封面占位符 - 竖屏尺寸 (200x240)
+            # 封面占位符 - 更大的竖屏尺寸 (270x360)
             self.preview_cover_label = tk.Label(content_frame, text="🔄 加载中...",
                                               font=get_safe_font('Arial', 16),
                                               bg='#F2F2F7', fg='#8E8E93',
-                                              width=200, height=240)
+                                              width=270, height=360)
             self.preview_cover_label.pack()
             
             # 计算窗口位置（跟随鼠标，但避免超出屏幕）
@@ -499,9 +523,9 @@ class AlbumGrid:
             screen_width = self.preview_window.winfo_screenwidth()
             screen_height = self.preview_window.winfo_screenheight()
             
-            # 预估窗口大小 - 适应新的封面尺寸
-            window_width = 240
-            window_height = 320
+            # 预估窗口大小 - 适应更大的封面尺寸
+            window_width = 310
+            window_height = 420
             
             # 调整位置避免超出屏幕
             if x + window_width > screen_width:
@@ -515,10 +539,10 @@ class AlbumGrid:
             # 显示窗口
             self.preview_window.deiconify()
             
-            # 异步加载竖屏尺寸封面 - 直接指定尺寸
+            # 异步加载竖屏尺寸封面 - 更大尺寸
             self._load_cover_image(album_path, 
                                  lambda photo: self._update_preview_cover(photo),
-                                 size=(200, 240))
+                                 size=(270, 360))
             
             # 绑定鼠标离开事件
             self._bind_preview_events()
@@ -646,13 +670,17 @@ class AlbumGrid:
             if not self.scrollable_frame:
                 return
             
-            # 计算响应式列数
+            # 计算响应式列数 - 优化瀑布流布局
             canvas_width = self.canvas.winfo_width()
             if canvas_width > 1:
                 # 根据卡片宽度和间距计算最佳列数
-                available_width = canvas_width - 40  # 减去边距
+                available_width = canvas_width - (self.card_spacing * 2)  # 减去左右边距
                 card_total_width = self.card_width + self.card_spacing
-                self.columns = max(1, available_width // card_total_width)
+                calculated_columns = max(self.min_columns, available_width // card_total_width)
+                self.columns = min(self.max_columns, calculated_columns)
+            else:
+                # 窗口尚未完全初始化时使用默认值
+                self.columns = 2
             
             # 创建网格容器
             grid_container = tk.Frame(self.scrollable_frame, bg=self.style_manager.colors['bg_primary'])
@@ -719,10 +747,10 @@ class AlbumGrid:
                 self.style_manager.colors['card_bg']
             )
             
-            # 封面区域
+            # 封面区域 - 调整为竖屏比例 (3:4)
             cover_frame = tk.Frame(card, 
                                  bg=self.style_manager.colors['card_bg'], 
-                                 height=200)
+                                 height=280)  # 增加高度以适应竖屏比例
             cover_frame.pack(fill='x', padx=self.card_padding, pady=(self.card_padding, 8))
             cover_frame.pack_propagate(False)
             
@@ -755,9 +783,10 @@ class AlbumGrid:
             cover_label.bind('<Enter>', on_cover_enter)
             cover_label.bind('<Leave>', on_cover_leave)
             
-            # 异步加载封面
+            # 异步加载封面 - 使用竖屏比例 (3:4)
             self._load_cover_image(album_path, 
-                                 lambda photo, label=cover_label: self._update_cover(label, photo))
+                                 lambda photo, label=cover_label: self._update_cover(label, photo),
+                                 size=(210, 280))  # 竖屏比例尺寸
             
             # 信息区域
             info_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'])
