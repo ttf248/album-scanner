@@ -1,5 +1,5 @@
-import tkinter as tk
 from tkinter import filedialog, ttk, messagebox, Toplevel
+import tkinter as tk
 import os
 from ..utils.image_utils import ImageProcessor, SlideshowManager
 from PIL import Image, ImageTk
@@ -7,575 +7,10 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from .components.style_manager import StyleManager, get_safe_font
 from .components.status_bar import StatusBar
+from .components.album_grid import AlbumGrid
 
 
-
-
-class AlbumGrid:
-    """瀑布流相册网格"""
-    
-    def __init__(self, parent, open_callback, favorite_callback):
-        self.parent = parent
-        self.open_callback = open_callback
-        self.favorite_callback = favorite_callback
-        self.is_favorite = None  # 由外部设置
-        self.nav_bar = None  # 导航栏引用
-        
-        # 封面缓存
-        self.cover_cache = {}  # 缓存封面图片
-        self.large_cover_cache = {}  # 缓存大尺寸封面图片
-        self.executor = ThreadPoolExecutor(max_workers=3)  # 线程池用于异步加载封面
-        
-        # 浮动预览框
-        self.preview_window = None
-        self.preview_timer = None
-        
-        # 确保初始化grid_frame
-        self.grid_frame = None
-        self.canvas = None
-        self.scrollbar = None
-        self.scrollable_frame = None
-        self.create_widgets()
-    
-    def create_widgets(self):
-        """创建带滚动功能的网格组件"""
-        try:
-            # 创建主容器
-            self.grid_frame = tk.Frame(self.parent, bg='#F2F2F7')
-            self.grid_frame.pack(fill='both', expand=True)
-            
-            # 创建Canvas和滚动条
-            self.canvas = tk.Canvas(self.grid_frame, bg='#F2F2F7', highlightthickness=0)
-            self.scrollbar = tk.Scrollbar(self.grid_frame, orient="vertical", command=self.canvas.yview)
-            self.scrollable_frame = tk.Frame(self.canvas, bg='#F2F2F7')
-            
-            # 配置滚动
-            self.scrollable_frame.bind(
-                "<Configure>",
-                lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-            )
-            
-            self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-            self.canvas.configure(yscrollcommand=self.scrollbar.set)
-            
-            # 布局Canvas和滚动条
-            self.canvas.pack(side="left", fill="both", expand=True)
-            self.scrollbar.pack(side="right", fill="y")
-            
-            # 绑定鼠标滚轮事件
-            self._bind_mousewheel()
-            
-            # 显示初始状态
-            self._show_empty_state()
-            
-        except Exception as e:
-            print(f"创建AlbumGrid组件时出错: {e}")
-            # 创建一个基本的框架作为备用
-            self.grid_frame = tk.Frame(self.parent, bg='white')
-            self.grid_frame.pack(fill='both', expand=True)
-            
-            # 显示错误信息
-            error_label = tk.Label(self.grid_frame, text="界面初始化失败，使用简化模式", 
-                                 bg='white', fg='red')
-            error_label.pack(expand=True)
-    
-    def _bind_mousewheel(self):
-        """绑定鼠标滚轮事件"""
-        def _on_mousewheel(event):
-            if self.canvas:
-                self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        def _bind_to_mousewheel(event):
-            if self.canvas:
-                self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        def _unbind_from_mousewheel(event):
-            if self.canvas:
-                self.canvas.unbind_all("<MouseWheel>")
-        
-        if self.canvas:
-            self.canvas.bind('<Enter>', _bind_to_mousewheel)
-            self.canvas.bind('<Leave>', _unbind_from_mousewheel)
-    
-    def _show_empty_state(self):
-        """显示空状态"""
-        try:
-            if self.scrollable_frame:
-                # 清除现有内容
-                for widget in self.scrollable_frame.winfo_children():
-                    widget.destroy()
-                
-                # 显示空状态提示
-                empty_label = tk.Label(self.scrollable_frame, text="请选择文件夹并扫描相册", 
-                                      font=get_safe_font('Arial', 16), 
-                                      bg='#F2F2F7', fg='#6D6D80')
-                empty_label.pack(expand=True, pady=100)
-        except Exception as e:
-            print(f"显示空状态时出错: {e}")
-        
-    def _load_cover_image(self, album_path, callback, size=(120, 120)):
-        """异步加载封面图片"""
-        def load_cover():
-            try:
-                # 查找相册中的第一张图片作为封面
-                image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
-                
-                for file in os.listdir(album_path):
-                    if any(file.lower().endswith(ext) for ext in image_extensions):
-                        cover_path = os.path.join(album_path, file)
-                        
-                        # 根据尺寸选择缓存
-                        cache_key = f"{cover_path}_{size[0]}x{size[1]}"
-                        target_cache = self.large_cover_cache if size[0] > 120 else self.cover_cache
-                        
-                        # 检查缓存
-                        if cache_key in target_cache:
-                            callback(target_cache[cache_key])
-                            return
-                        
-                        # 加载并调整图片大小
-                        with Image.open(cover_path) as img:
-                            # 创建缩略图
-                            img.thumbnail(size, Image.Resampling.LANCZOS)
-                            
-                            # 创建背景
-                            bg_color = (242, 242, 247, 255) if size[0] <= 120 else (255, 255, 255, 255)
-                            bg = Image.new('RGBA', size, bg_color)
-                            
-                            # 计算居中位置
-                            img_w, img_h = img.size
-                            x = (size[0] - img_w) // 2
-                            y = (size[1] - img_h) // 2
-                            
-                            # 确保图片有alpha通道
-                            if img.mode != 'RGBA':
-                                img = img.convert('RGBA')
-                            
-                            # 粘贴到背景上
-                            bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
-                            
-                            # 转换为PhotoImage
-                            photo = ImageTk.PhotoImage(bg)
-                            
-                            # 缓存图片
-                            target_cache[cache_key] = photo
-                            
-                            # 回调显示
-                            callback(photo)
-                            return
-                
-                # 如果没有找到图片，返回默认图标
-                callback(None)
-                
-            except Exception as e:
-                print(f"加载封面失败 {album_path}: {e}")
-                callback(None)
-        
-        # 在线程池中执行
-        self.executor.submit(load_cover)
-    
-    def _show_preview_window(self, event, album_path, album_name):
-        """显示预览浮动窗口"""
-        try:
-            # 清除之前的定时器
-            if self.preview_timer:
-                self.parent.after_cancel(self.preview_timer)
-                self.preview_timer = None
-            
-            # 关闭之前的预览窗口
-            self._hide_preview_window()
-            
-            # 延迟显示预览窗口（避免鼠标快速移动时频繁弹出）
-            self.preview_timer = self.parent.after(500, 
-                lambda: self._create_preview_window(event, album_path, album_name))
-            
-        except Exception as e:
-            print(f"显示预览窗口时出错: {e}")
-    
-    def _create_preview_window(self, event, album_path, album_name):
-        """创建预览浮动窗口"""
-        try:
-            # 创建顶层窗口
-            self.preview_window = tk.Toplevel(self.parent)
-            self.preview_window.withdraw()  # 先隐藏
-            
-            # 设置窗口属性
-            self.preview_window.overrideredirect(True)  # 无边框
-            self.preview_window.configure(bg='white', relief='solid', bd=2)
-            
-            # 设置窗口在最顶层
-            self.preview_window.attributes('-topmost', True)
-            
-            # 创建内容框架
-            content_frame = tk.Frame(self.preview_window, bg='white', padx=10, pady=10)
-            content_frame.pack()
-            
-            # 标题
-            title_label = tk.Label(content_frame, text=album_name,
-                                 font=get_safe_font('Arial', 12, 'bold'),
-                                 bg='white', fg='black')
-            title_label.pack(pady=(0, 8))
-            
-            # 封面占位符 - 更大尺寸
-            self.preview_cover_label = tk.Label(content_frame, text="🔄 加载中...",
-                                              font=get_safe_font('Arial', 16),
-                                              bg='#F2F2F7', fg='#8E8E93',
-                                              width=200, height=200)
-            self.preview_cover_label.pack()
-            
-            # 计算窗口位置（跟随鼠标，但避免超出屏幕）
-            x = event.x_root + 15
-            y = event.y_root + 15
-            
-            # 获取屏幕尺寸
-            screen_width = self.preview_window.winfo_screenwidth()
-            screen_height = self.preview_window.winfo_screenheight()
-            
-            # 预估窗口大小
-            window_width = 240
-            window_height = 280
-            
-            # 调整位置避免超出屏幕
-            if x + window_width > screen_width:
-                x = event.x_root - window_width - 15
-            if y + window_height > screen_height:
-                y = event.y_root - window_height - 15
-            
-            # 设置窗口位置
-            self.preview_window.geometry(f"+{x}+{y}")
-            
-            # 显示窗口
-            self.preview_window.deiconify()
-            
-            # 异步加载大尺寸封面
-            self._load_cover_image(album_path, 
-                                 lambda photo: self._update_preview_cover(photo),
-                                 size=(200, 200))
-            
-            # 绑定鼠标离开事件
-            self._bind_preview_events()
-            
-        except Exception as e:
-            print(f"创建预览窗口时出错: {e}")
-            self._hide_preview_window()
-    
-    def _update_preview_cover(self, photo):
-        """更新预览窗口的封面"""
-        try:
-            if (photo and self.preview_window and 
-                self.preview_window.winfo_exists() and 
-                hasattr(self, 'preview_cover_label') and 
-                self.preview_cover_label.winfo_exists()):
-                
-                self.preview_cover_label.configure(image=photo, text="")
-                self.preview_cover_label.image = photo  # 保持引用
-                
-        except Exception as e:
-            print(f"更新预览封面时出错: {e}")
-    
-    def _bind_preview_events(self):
-        """绑定预览窗口事件"""
-        try:
-            if self.preview_window and self.preview_window.winfo_exists():
-                # 鼠标进入预览窗口时保持显示
-                self.preview_window.bind('<Enter>', self._on_preview_enter)
-                # 鼠标离开预览窗口时隐藏
-                self.preview_window.bind('<Leave>', self._on_preview_leave)
-                
-                # 为预览窗口内的所有组件绑定事件
-                for widget in self.preview_window.winfo_children():
-                    self._bind_widget_events(widget)
-                    
-        except Exception as e:
-            print(f"绑定预览事件时出错: {e}")
-    
-    def _bind_widget_events(self, widget):
-        """递归绑定组件事件"""
-        try:
-            widget.bind('<Enter>', self._on_preview_enter)
-            widget.bind('<Leave>', self._on_preview_leave)
-            
-            # 递归绑定子组件
-            for child in widget.winfo_children():
-                self._bind_widget_events(child)
-                
-        except Exception as e:
-            print(f"绑定组件事件时出错: {e}")
-    
-    def _on_preview_enter(self, event):
-        """鼠标进入预览窗口"""
-        # 取消隐藏定时器
-        if self.preview_timer:
-            self.parent.after_cancel(self.preview_timer)
-            self.preview_timer = None
-    
-    def _on_preview_leave(self, event):
-        """鼠标离开预览窗口"""
-        # 延迟隐藏窗口（给用户时间移动鼠标回来）
-        self.preview_timer = self.parent.after(300, self._hide_preview_window)
-    
-    def _hide_preview_window(self):
-        """隐藏预览窗口"""
-        try:
-            if self.preview_timer:
-                self.parent.after_cancel(self.preview_timer)
-                self.preview_timer = None
-                
-            if self.preview_window and self.preview_window.winfo_exists():
-                self.preview_window.destroy()
-                self.preview_window = None
-                
-        except Exception as e:
-            print(f"隐藏预览窗口时出错: {e}")
-
-    def display_albums(self, albums):
-        """显示相册（带滚动支持和封面）"""
-        try:
-            # 确保组件存在
-            if not hasattr(self, 'scrollable_frame') or self.scrollable_frame is None:
-                print("scrollable_frame不存在，重新创建")
-                self.create_widgets()
-                
-            # 清除现有内容
-            for widget in self.scrollable_frame.winfo_children():
-                widget.destroy()
-            
-            if not albums or len(albums) == 0:
-                # 显示空状态
-                empty_label = tk.Label(self.scrollable_frame, text="暂无相册", 
-                                      font=get_safe_font('Arial', 16), 
-                                      bg='#F2F2F7', fg='#6D6D80')
-                empty_label.pack(expand=True, pady=100)
-                return
-            
-            # 隐藏导航栏的启动页（如果存在）
-            if hasattr(self, 'nav_bar') and self.nav_bar and hasattr(self.nav_bar, 'hide_start_page'):
-                self.nav_bar.hide_start_page()
-            
-            # 创建相册列表显示
-            for i, album in enumerate(albums):
-                try:
-                    # 验证相册数据完整性
-                    if not isinstance(album, dict):
-                        continue
-                        
-                    album_name = album.get('name', '未知相册')
-                    image_count = album.get('image_count', 0)
-                    album_path = album.get('path', '')
-                    
-                    if not album_path:
-                        continue
-                    
-                    # 创建相册卡片 - 增加高度以容纳封面
-                    album_frame = tk.Frame(self.scrollable_frame, bg='white', relief='solid', bd=1)
-                    album_frame.pack(fill='x', padx=15, pady=8)
-                    
-                    # 主要内容框架 - 使用水平布局
-                    main_frame = tk.Frame(album_frame, bg='white')
-                    main_frame.pack(fill='x', padx=15, pady=15)
-                    
-                    # 左侧封面区域
-                    cover_frame = tk.Frame(main_frame, bg='white', width=120, height=120)
-                    cover_frame.pack(side='left', padx=(0, 15))
-                    cover_frame.pack_propagate(False)  # 保持固定大小
-                    
-                    # 封面占位符
-                    cover_label = tk.Label(cover_frame, text="📁", 
-                                         font=get_safe_font('Arial', 48),
-                                         bg='#F2F2F7', fg='#8E8E93',
-                                         width=120, height=120, cursor='hand2')
-                    cover_label.pack(fill='both')
-                    
-                    # 封面点击事件 - 预览相册
-                    cover_label.bind('<Button-1>', 
-                                   lambda e, path=album_path: self.open_callback(path))
-                    
-                    # 封面悬停事件 - 显示预览
-                    # cover_label.bind('<Enter>', 
-                    #                lambda e, path=album_path, name=album_name: 
-                    #                self._show_preview_window(e, path, name))
-                    cover_label.bind('<Leave>', 
-                                   lambda e: self._schedule_hide_preview())
-                    
-                    # 右侧信息区域
-                    info_frame = tk.Frame(main_frame, bg='white')
-                    info_frame.pack(side='left', fill='both', expand=True)
-                    
-                    # 名称
-                    name_label = tk.Label(info_frame, text=album_name, 
-                                         font=get_safe_font('Arial', 16, 'bold'), 
-                                         bg='white', fg='black', anchor='w')
-                    name_label.pack(fill='x', pady=(0, 5))
-                    
-                    # 统计信息
-                    stats_text = f"📷 {image_count} 张图片"
-                    if 'folder_size' in album and album['folder_size']:
-                        stats_text += f"  💾 {album['folder_size']}"
-                    stats_label = tk.Label(info_frame, text=stats_text, 
-                                          font=get_safe_font('Arial', 12), 
-                                          bg='white', fg='#6D6D80', anchor='w')
-                    stats_label.pack(fill='x', pady=(0, 5))
-                    
-                    # 路径信息
-                    path_text = f"📁 {album_path}"
-                    if len(path_text) > 60:
-                        path_text = path_text[:57] + "..."
-                    path_label = tk.Label(info_frame, text=path_text, 
-                                         font=get_safe_font('Arial', 10), 
-                                         bg='white', fg='#8E8E93', anchor='w')
-                    path_label.pack(fill='x', pady=(0, 10))
-                    
-                    # 按钮框架
-                    btn_frame = tk.Frame(info_frame, bg='white')
-                    btn_frame.pack(fill='x')
-                    
-                    # 打开按钮 - 增大尺寸
-                    open_btn = tk.Button(btn_frame, text="🔍 打开相册", 
-                                       font=get_safe_font('Arial', 11, 'bold'), 
-                                       bg='#007AFF', fg='white',
-                                       relief='flat', bd=0, padx=20, pady=8,
-                                       cursor='hand2',
-                                       command=lambda path=album_path: self.open_callback(path))
-                    open_btn.pack(side='left', padx=(0, 10))
-                    
-                    # 收藏按钮 - 改进样式
-                    is_fav = self.is_favorite(album_path) if self.is_favorite else False
-                    fav_text = "⭐ 已收藏" if is_fav else "☆ 收藏"
-                    fav_color = '#FF9500' if is_fav else '#8E8E93'
-                    fav_btn = tk.Button(btn_frame, text=fav_text, 
-                                      font=get_safe_font('Arial', 11), 
-                                      bg=fav_color, fg='white',
-                                      relief='flat', bd=0, padx=15, pady=8,
-                                      cursor='hand2',
-                                      command=lambda path=album_path: self.favorite_callback(path))
-                    fav_btn.pack(side='left')
-                    
-                    # 异步加载封面图片
-                    self._load_cover_image(album_path, 
-                                         lambda photo, label=cover_label: self._update_cover(label, photo))
-                    
-                    # 添加悬停效果
-                    self._add_hover_effects(album_frame, open_btn, fav_btn)
-                        
-                except Exception as e:
-                    print(f"显示相册项时出错 {i}: {e}")
-                    continue
-            
-            # 更新滚动区域
-            self.scrollable_frame.update_idletasks()
-            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-                
-        except Exception as e:
-            print(f"显示相册列表时出错: {e}")
-            # 创建最基本的显示
-            self._create_fallback_display(albums)
-    
-    def _add_hover_effects(self, album_frame, open_btn, fav_btn):
-        """添加悬停效果"""
-        try:
-            # 相册卡片悬停效果
-            def on_album_enter(event):
-                album_frame.configure(relief='solid', bd=2)
-                
-            def on_album_leave(event):
-                album_frame.configure(relief='solid', bd=1)
-            
-            album_frame.bind('<Enter>', on_album_enter)
-            album_frame.bind('<Leave>', on_album_leave)
-            
-            # 按钮悬停效果
-            def on_open_btn_enter(event):
-                open_btn.configure(bg='#0056D6')
-                
-            def on_open_btn_leave(event):
-                open_btn.configure(bg='#007AFF')
-                
-            open_btn.bind('<Enter>', on_open_btn_enter)
-            open_btn.bind('<Leave>', on_open_btn_leave)
-            
-            # 收藏按钮悬停效果
-            def on_fav_btn_enter(event):
-                current_bg = fav_btn.cget('bg')
-                if current_bg == '#FF9500':  # 已收藏
-                    fav_btn.configure(bg='#E6830C')
-                else:  # 未收藏
-                    fav_btn.configure(bg='#6D6D80')
-                    
-            def on_fav_btn_leave(event):
-                current_bg = fav_btn.cget('bg')
-                if current_bg == '#E6830C':  # 已收藏悬停
-                    fav_btn.configure(bg='#FF9500')
-                else:  # 未收藏悬停
-                    fav_btn.configure(bg='#8E8E93')
-                    
-            fav_btn.bind('<Enter>', on_fav_btn_enter)
-            fav_btn.bind('<Leave>', on_fav_btn_leave)
-            
-        except Exception as e:
-            print(f"添加悬停效果时出错: {e}")
-    
-    def _create_fallback_display(self, albums):
-        """创建基本的显示方式作为备用"""
-        try:
-            # 清除现有内容
-            if hasattr(self, 'scrollable_frame') and self.scrollable_frame:
-                for widget in self.scrollable_frame.winfo_children():
-                    widget.destroy()
-                
-                # 创建简单的列表显示
-                error_label = tk.Label(self.scrollable_frame, 
-                                     text="界面组件出错，使用简化显示", 
-                                     font=get_safe_font('Arial', 14), 
-                                     bg='#F2F2F7', fg='#FF3B30')
-                error_label.pack(pady=10)
-                
-                # 简单显示相册
-                for album in albums:
-                    try:
-                        album_name = album.get('name', '未知相册')
-                        album_path = album.get('path', '')
-                        image_count = album.get('image_count', 0)
-                        
-                        simple_frame = tk.Frame(self.scrollable_frame, bg='white', relief='solid', bd=1)
-                        simple_frame.pack(fill='x', padx=10, pady=2)
-                        
-                        info_text = f"{album_name} ({image_count} 张图片)"
-                        tk.Label(simple_frame, text=info_text, bg='white', anchor='w').pack(side='left', padx=10, pady=5)
-                        
-                        if album_path:
-                            tk.Button(simple_frame, text="打开", 
-                                    command=lambda p=album_path: self.open_callback(p)).pack(side='right', padx=10)
-                    except Exception as e:
-                        print(f"创建简化相册项时出错: {e}")
-                        continue
-                        
-        except Exception as e:
-            print(f"创建备用显示时出错: {e}")
-    
-    def _update_cover(self, label, photo):
-        """更新封面图片"""
-        try:
-            if photo and label.winfo_exists():
-                label.configure(image=photo, text="")
-                label.image = photo  # 保持引用
-        except Exception as e:
-            print(f"更新封面时出错: {e}")
-    
-    def _schedule_hide_preview(self):
-        """计划隐藏预览窗口"""
-        # 延迟隐藏，给用户时间移动到预览窗口
-        self.preview_timer = self.parent.after(200, self._hide_preview_window)
-
-    def __del__(self):
-        """清理资源"""
-        try:
-            # 清理预览窗口
-            self._hide_preview_window()
-            
-            if hasattr(self, 'executor'):
-                self.executor.shutdown(wait=False)
-        except:
-            pass
+# AlbumGrid类已移动到 components/album_grid.py
 
 class ImageViewer:
     """图片查看器"""
@@ -627,168 +62,111 @@ class ImageViewer:
         
         # 右侧控制按钮
         btn_frame = tk.Frame(toolbar_content, bg='#2C2C2E')
-        btn_frame.pack(side='right')
+        btn_frame.pack(side='right', fill='y')
         
-        # 旋转按钮 - 添加快捷键提示
-        rotate_left_btn = tk.Button(btn_frame, text="↺ (Shift+R)", 
-                                   font=get_safe_font('Arial', 10),
-                                   bg='#48484A', fg='white', relief='flat',
-                                   padx=8, command=self.rotate_left)
-        rotate_left_btn.pack(side='left', padx=2)
+        # 按钮样式
+        btn_style = {
+            'font': get_safe_font('Arial', 10),
+            'bg': '#48484A',
+            'fg': 'white',
+            'relief': 'flat',
+            'padx': 12,
+            'pady': 6,
+            'cursor': 'hand2'
+        }
         
-        rotate_right_btn = tk.Button(btn_frame, text="↻ (R)", 
-                                    font=get_safe_font('Arial', 10),
-                                    bg='#48484A', fg='white', relief='flat',
-                                    padx=8, command=self.rotate_right)
-        rotate_right_btn.pack(side='left', padx=2)
+        # 控制按钮
+        tk.Button(btn_frame, text="⏮️ 第一张", command=self.goto_first_image, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="⬅️ 上一张", command=self.prev_image, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="➡️ 下一张", command=self.next_image, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="⏭️ 最后一张", command=self.goto_last_image, **btn_style).pack(side='left', padx=2)
         
         # 分隔线
-        separator = tk.Label(btn_frame, text="|", bg='#2C2C2E', fg='#48484A')
-        separator.pack(side='left', padx=5)
+        separator = tk.Frame(btn_frame, bg='#6C6C70', width=1, height=30)
+        separator.pack(side='left', padx=8)
         
-        # 缩放按钮 - 添加快捷键提示
-        zoom_out_btn = tk.Button(btn_frame, text="缩小 (-)", 
+        # 缩放按钮
+        tk.Button(btn_frame, text="🔍+ 放大", command=self.zoom_in, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="🔍- 缩小", command=self.zoom_out, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="📐 重置", command=self.reset_zoom, **btn_style).pack(side='left', padx=2)
+        
+        # 分隔线
+        separator2 = tk.Frame(btn_frame, bg='#6C6C70', width=1, height=30)
+        separator2.pack(side='left', padx=8)
+        
+        # 旋转按钮
+        tk.Button(btn_frame, text="↺ 左转", command=self.rotate_left, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="↻ 右转", command=self.rotate_right, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="🔄 重置", command=self.reset_rotation, **btn_style).pack(side='left', padx=2)
+        
+        # 分隔线
+        separator3 = tk.Frame(btn_frame, bg='#6C6C70', width=1, height=30)
+        separator3.pack(side='left', padx=8)
+        
+        # 功能按钮
+        tk.Button(btn_frame, text="🖥️ 全屏", command=self.toggle_fullscreen, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="▶️ 幻灯片", command=self.start_slideshow, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="ℹ️ 信息", command=self.show_image_info, **btn_style).pack(side='left', padx=2)
+        tk.Button(btn_frame, text="❓ 帮助", command=self.show_help, **btn_style).pack(side='left', padx=2)
+        
+        # 主显示区域
+        self.main_frame = tk.Frame(self.parent, bg='#1D1D1F')
+        self.main_frame.pack(fill='both', expand=True)
+        
+        # 创建Canvas用于显示图片
+        self.canvas = tk.Canvas(self.main_frame, bg='#1D1D1F', highlightthickness=0)
+        self.canvas.pack(fill='both', expand=True)
+        
+        # 绑定Canvas事件
+        self.canvas.bind('<Configure>', self.on_window_resize)
+        
+        # 状态栏
+        self.status_frame = tk.Frame(self.parent, bg='#2C2C2E', height=30)
+        self.status_frame.pack(side='bottom', fill='x')
+        self.status_frame.pack_propagate(False)
+        
+        self.status_var = tk.StringVar()
+        status_label = tk.Label(self.status_frame, textvariable=self.status_var,
                                font=get_safe_font('Arial', 10),
-                               bg='#48484A', fg='white', relief='flat',
-                               padx=8, command=self.zoom_out)
-        zoom_out_btn.pack(side='left', padx=2)
-        
-        zoom_in_btn = tk.Button(btn_frame, text="放大 (+)", 
-                              font=get_safe_font('Arial', 10),
-                              bg='#48484A', fg='white', relief='flat',
-                              padx=8, command=self.zoom_in)
-        zoom_in_btn.pack(side='left', padx=2)
-        
-        reset_btn = tk.Button(btn_frame, text="重置 (0)", 
-                            font=get_safe_font('Arial', 10),
-                            bg='#48484A', fg='white', relief='flat',
-                            padx=8, command=self.reset_zoom)
-        reset_btn.pack(side='left', padx=2)
-        
-        # 主图片显示区域
-        self.image_frame = tk.Frame(self.parent, bg='#1D1D1F')
-        self.image_frame.pack(fill='both', expand=True)
-        
-        # 图片标签
-        self.image_label = tk.Label(self.image_frame, bg='#1D1D1F', cursor='hand2')
-        self.image_label.pack(expand=True)
-        
-        # 底部控制栏
-        self.control_frame = tk.Frame(self.parent, bg='#2C2C2E', height=70)
-        self.control_frame.pack(side='bottom', fill='x')
-        self.control_frame.pack_propagate(False)
-        
-        # 控制栏内容
-        control_content = tk.Frame(self.control_frame, bg='#2C2C2E')
-        control_content.pack(fill='both', expand=True, padx=20, pady=15)
-        
-        # 左侧导航按钮 - 添加快捷键提示
-        nav_frame = tk.Frame(control_content, bg='#2C2C2E')
-        nav_frame.pack(side='left')
-        
-        prev_btn = tk.Button(nav_frame, text="⬅ 上一张 (←)", 
-                           font=get_safe_font('Arial', 12, 'bold'),
-                           bg='#007AFF', fg='white', relief='flat',
-                           padx=20, pady=8, command=self.prev_image)
-        prev_btn.pack(side='left')
-        
-        next_btn = tk.Button(nav_frame, text="下一张 (→) ➡", 
-                           font=get_safe_font('Arial', 12, 'bold'),
-                           bg='#007AFF', fg='white', relief='flat',
-                           padx=20, pady=8, command=self.next_image)
-        next_btn.pack(side='left', padx=(10, 0))
-        
-        # 中间缩放信息
-        zoom_info_frame = tk.Frame(control_content, bg='#2C2C2E')
-        zoom_info_frame.pack(expand=True)
-        
-        self.zoom_var = tk.StringVar()
-        zoom_label = tk.Label(zoom_info_frame, textvariable=self.zoom_var,
-                             font=get_safe_font('Arial', 11),
-                             bg='#2C2C2E', fg='#8E8E93')
-        zoom_label.pack()
-        
-        # 右侧进度信息
-        progress_frame = tk.Frame(control_content, bg='#2C2C2E')
-        progress_frame.pack(side='right')
-        
-        self.progress_var = tk.StringVar()
-        progress_label = tk.Label(progress_frame, textvariable=self.progress_var,
-                                font=get_safe_font('Arial', 12, 'bold'),
-                                bg='#2C2C2E', fg='white')
-        progress_label.pack()
+                               bg='#2C2C2E', fg='#8E8E93')
+        status_label.pack(side='left', padx=15, pady=5)
     
     def bind_events(self):
         """绑定键盘和鼠标事件"""
-        # 键盘事件 - 绑定到窗口
-        self.parent.bind('<KeyPress>', self.on_key_press)
+        # 确保窗口可以接收焦点
         self.parent.focus_set()
         
-        # 双击全屏
-        self.image_label.bind('<Double-Button-1>', self.toggle_fullscreen)
+        # 绑定键盘事件
+        self.parent.bind('<Key>', self.on_key_press)
+        self.parent.bind('<Left>', lambda e: self.prev_image())
+        self.parent.bind('<Right>', lambda e: self.next_image())
+        self.parent.bind('<Home>', lambda e: self.goto_first_image())
+        self.parent.bind('<End>', lambda e: self.goto_last_image())
+        self.parent.bind('<plus>', lambda e: self.zoom_in())
+        self.parent.bind('<minus>', lambda e: self.zoom_out())
+        self.parent.bind('<F11>', lambda e: self.toggle_fullscreen())
+        self.parent.bind('<Escape>', lambda e: self.parent.quit())
         
-        # 鼠标滚轮缩放
-        self.image_label.bind('<MouseWheel>', self.on_mouse_wheel)
+        # 绑定鼠标滚轮事件
+        self.canvas.bind('<MouseWheel>', self.on_mouse_wheel)
         
-        # 窗口大小变化时重新调整图片
+        # 绑定窗口大小变化事件
         self.parent.bind('<Configure>', self.on_window_resize)
-        
-        # 为了确保键盘事件能被捕获，也绑定到图片标签
-        self.image_label.bind('<Button-1>', lambda e: self.parent.focus_set())
     
     def on_key_press(self, event):
-        """键盘事件处理 - 支持多种快捷键"""
+        """处理键盘按键事件"""
         key = event.keysym.lower()
         
-        # 图片导航
-        if key in ['left', 'a']:
-            self.prev_image()
-        elif key in ['right', 'd']:
-            self.next_image()
-        elif key in ['up', 'w']:
-            self.prev_image()
-        elif key in ['down', 's']:
-            self.next_image()
-        elif key in ['home']:
-            self.goto_first_image()
-        elif key in ['end']:
-            self.goto_last_image()
-        
-        # 缩放控制
-        elif key in ['plus', 'equal', 'kp_add']:
-            self.zoom_in()
-        elif key in ['minus', 'kp_subtract']:
-            self.zoom_out()
-        elif key in ['0', 'kp_0']:
-            self.reset_zoom()
-        
-        # 旋转控制
-        elif key in ['r']:
+        if key == 'r':
             self.rotate_right()
-        elif key in ['shift_r'] or (event.state & 0x1 and key == 'r'):  # Shift+R
-            self.rotate_left()
-        elif key in ['ctrl_r'] or (event.state & 0x4 and key == 'r'):  # Ctrl+R
-            self.reset_rotation()
-        
-        # 全屏控制
-        elif key in ['f11', 'f']:
-            self.toggle_fullscreen()
-        elif key in ['escape']:
-            if self.is_fullscreen:
-                self.toggle_fullscreen()
-            else:
-                self.parent.destroy()
-        
-        # 其他功能
-        elif key in ['space']:
-            self.start_slideshow()
-        elif key in ['i']:
+        elif key == 'i':
             self.show_image_info()
-        elif key in ['h', 'f1']:
+        elif key == 'h':
             self.show_help()
-        
-        # 防止事件传播
-        return "break"
+        elif key == 'space':
+            self.start_slideshow()
+        elif key == 'equal':  # + 键（不按Shift）
+            self.zoom_in()
     
     def load_current_image(self):
         """加载当前图片"""
@@ -798,64 +176,74 @@ class ImageViewer:
         try:
             image_path = self.image_files[self.current_index]
             
-            # 使用PIL加载图片
+            # 更新文件信息
+            filename = os.path.basename(image_path)
+            file_info = f"{self.current_index + 1}/{len(self.image_files)} - {filename}"
+            self.file_info_var.set(file_info)
+            
+            # 加载图片
             with Image.open(image_path) as img:
                 # 应用旋转
                 if self.rotation != 0:
                     img = img.rotate(-self.rotation, expand=True)
                 
-                # 获取原始尺寸
-                original_width, original_height = img.size
+                # 获取Canvas尺寸
+                canvas_width = self.canvas.winfo_width()
+                canvas_height = self.canvas.winfo_height()
                 
-                # 获取显示区域尺寸
-                self.image_frame.update_idletasks()
-                display_width = self.image_frame.winfo_width() or 800
-                display_height = self.image_frame.winfo_height() or 600
+                if canvas_width <= 1 or canvas_height <= 1:
+                    # Canvas还没有正确初始化，延迟加载
+                    self.parent.after(100, self.load_current_image)
+                    return
                 
-                # 计算缩放比例
-                if display_width > 100 and display_height > 100:
-                    scale_x = display_width / original_width
-                    scale_y = display_height / original_height
-                    scale = min(scale_x, scale_y) * 0.9  # 留一些边距
+                # 计算缩放后的尺寸
+                img_width, img_height = img.size
+                
+                # 应用用户缩放
+                display_width = int(img_width * self.zoom_factor)
+                display_height = int(img_height * self.zoom_factor)
+                
+                # 如果图片太大，自动适应Canvas
+                if self.zoom_factor == 1.0:  # 只在默认缩放时自动适应
+                    scale_x = canvas_width / img_width
+                    scale_y = canvas_height / img_height
+                    scale = min(scale_x, scale_y, 1.0)  # 不放大，只缩小
                     
-                    # 应用用户缩放
-                    scale *= self.zoom_factor
-                    
-                    # 计算新尺寸
-                    new_width = max(1, int(original_width * scale))
-                    new_height = max(1, int(original_height * scale))
-                    
-                    # 调整图片大小
-                    resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                    
-                    # 转换为PhotoImage
-                    self.current_image = ImageTk.PhotoImage(resized_img)
-                    
-                    # 显示图片
-                    self.image_label.configure(image=self.current_image, text="")
-                    self.image_label.image = self.current_image  # 保持引用
-            
-            # 更新信息显示
-            filename = os.path.basename(image_path)
-            self.file_info_var.set(f"📸 {filename}")
-            
-            progress_text = f"{self.current_index + 1} / {len(self.image_files)}"
-            self.progress_var.set(progress_text)
-            
-            # 更新缩放信息
-            zoom_percent = int(self.zoom_factor * 100)
-            zoom_text = f"缩放: {zoom_percent}%"
-            if self.rotation != 0:
-                zoom_text += f" | 旋转: {self.rotation}°"
-            self.zoom_var.set(zoom_text)
-            
+                    display_width = int(img_width * scale)
+                    display_height = int(img_height * scale)
+                
+                # 调整图片大小
+                if display_width != img_width or display_height != img_height:
+                    img = img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+                
+                # 转换为PhotoImage
+                self.current_image = ImageTk.PhotoImage(img)
+                
+                # 清空Canvas并显示图片
+                self.canvas.delete('all')
+                
+                # 计算居中位置
+                x = (canvas_width - display_width) // 2
+                y = (canvas_height - display_height) // 2
+                
+                self.canvas.create_image(x, y, anchor='nw', image=self.current_image)
+                
+                # 更新状态栏
+                status_text = f"尺寸: {img_width}×{img_height} | 缩放: {self.zoom_factor:.1f}x | 旋转: {self.rotation}°"
+                self.status_var.set(status_text)
+                
         except Exception as e:
-            print(f"加载图片失败 {image_path}: {e}")
+            print(f"加载图片失败: {e}")
             # 显示错误信息
-            error_text = f"无法加载图片\n{os.path.basename(image_path) if image_path else '未知文件'}"
-            self.image_label.configure(image='', text=error_text, 
-                                     font=get_safe_font('Arial', 14),
-                                     fg='#FF3B30')
+            self.canvas.delete('all')
+            self.canvas.create_text(
+                self.canvas.winfo_width()//2, 
+                self.canvas.winfo_height()//2,
+                text=f"无法加载图片\n{str(e)}", 
+                fill='white', 
+                font=get_safe_font('Arial', 16),
+                justify='center'
+            )
     
     def prev_image(self):
         """上一张图片"""
@@ -871,28 +259,22 @@ class ImageViewer:
     
     def goto_first_image(self):
         """跳转到第一张图片"""
-        if self.image_files:
-            self.current_index = 0
-            self.load_current_image()
+        self.current_index = 0
+        self.load_current_image()
     
     def goto_last_image(self):
         """跳转到最后一张图片"""
-        if self.image_files:
-            self.current_index = len(self.image_files) - 1
-            self.load_current_image()
+        self.current_index = len(self.image_files) - 1
+        self.load_current_image()
     
     def zoom_in(self):
-        """放大"""
-        self.zoom_factor *= 1.2
-        if self.zoom_factor > 10:  # 限制最大缩放
-            self.zoom_factor = 10
+        """放大图片"""
+        self.zoom_factor = min(self.zoom_factor * 1.2, 5.0)
         self.load_current_image()
     
     def zoom_out(self):
-        """缩小"""
-        self.zoom_factor /= 1.2
-        if self.zoom_factor < 0.1:  # 限制最小缩放
-            self.zoom_factor = 0.1
+        """缩小图片"""
+        self.zoom_factor = max(self.zoom_factor / 1.2, 0.1)
         self.load_current_image()
     
     def reset_zoom(self):
@@ -902,12 +284,12 @@ class ImageViewer:
     
     def rotate_left(self):
         """向左旋转90度"""
-        self.rotation = (self.rotation + 90) % 360
+        self.rotation = (self.rotation - 90) % 360
         self.load_current_image()
     
     def rotate_right(self):
         """向右旋转90度"""
-        self.rotation = (self.rotation - 90) % 360
+        self.rotation = (self.rotation + 90) % 360
         self.load_current_image()
     
     def reset_rotation(self):
@@ -915,28 +297,29 @@ class ImageViewer:
         self.rotation = 0
         self.load_current_image()
     
-    def toggle_fullscreen(self, event=None):
+    def toggle_fullscreen(self):
         """切换全屏模式"""
         self.is_fullscreen = not self.is_fullscreen
+        self.parent.attributes('-fullscreen', self.is_fullscreen)
         
         if self.is_fullscreen:
-            # 进入全屏
             self.toolbar.pack_forget()
-            self.control_frame.pack_forget()
-            self.parent.attributes('-fullscreen', True)
+            self.status_frame.pack_forget()
         else:
-            # 退出全屏
-            self.parent.attributes('-fullscreen', False)
-            self.toolbar.pack(side='top', fill='x')
-            self.control_frame.pack(side='bottom', fill='x')
+            self.toolbar.pack(side='top', fill='x', before=self.main_frame)
+            self.status_frame.pack(side='bottom', fill='x')
         
-        # 重新加载图片以适应新尺寸
+        # 重新加载图片以适应新的窗口大小
         self.parent.after(100, self.load_current_image)
     
     def start_slideshow(self):
-        """开始/暂停幻灯片播放"""
-        # 这里可以实现幻灯片功能
-        messagebox.showinfo("幻灯片", "幻灯片功能开发中...")
+        """开始幻灯片播放"""
+        try:
+            slideshow = SlideshowManager(self.parent, self.image_files, self.current_index)
+            slideshow.start()
+        except Exception as e:
+            print(f"启动幻灯片失败: {e}")
+            messagebox.showerror("错误", f"无法启动幻灯片播放\n{str(e)}")
     
     def show_image_info(self):
         """显示图片信息"""
@@ -945,73 +328,83 @@ class ImageViewer:
         
         try:
             image_path = self.image_files[self.current_index]
+            
+            # 获取文件信息
+            file_stat = os.stat(image_path)
+            file_size = file_stat.st_size
+            
+            # 格式化文件大小
+            if file_size < 1024:
+                size_str = f"{file_size} B"
+            elif file_size < 1024 * 1024:
+                size_str = f"{file_size / 1024:.1f} KB"
+            else:
+                size_str = f"{file_size / (1024 * 1024):.1f} MB"
+            
+            # 获取图片信息
             with Image.open(image_path) as img:
                 width, height = img.size
-                format_name = img.format
+                format_name = img.format or "未知"
                 mode = img.mode
             
-            file_size = os.path.getsize(image_path)
-            size_mb = file_size / (1024 * 1024)
-            
-            info_text = f"""图片信息：
+            # 构建信息文本
+            info_text = f"""文件信息:
 文件名: {os.path.basename(image_path)}
+路径: {image_path}
+文件大小: {size_str}
+
+图片信息:
 尺寸: {width} × {height} 像素
 格式: {format_name}
-模式: {mode}
-文件大小: {size_mb:.2f} MB
-路径: {image_path}"""
+颜色模式: {mode}
+
+当前状态:
+缩放: {self.zoom_factor:.1f}x
+旋转: {self.rotation}°
+位置: {self.current_index + 1} / {len(self.image_files)}"""
             
+            # 显示信息对话框
             messagebox.showinfo("图片信息", info_text)
             
         except Exception as e:
-            messagebox.showerror("错误", f"无法获取图片信息: {e}")
+            messagebox.showerror("错误", f"无法获取图片信息\n{str(e)}")
     
     def show_help(self):
         """显示帮助信息"""
-        help_text = """图片查看器快捷键：
+        help_text = """图片查看器 - 快捷键帮助
 
-📸 图片导航：
-  ← / A / ↑ / W      上一张图片
-  → / D / ↓ / S      下一张图片
-  Home               第一张图片
-  End                最后一张图片
+导航:
+← / → : 上一张 / 下一张图片
+Home / End : 第一张 / 最后一张图片
 
-🔍 缩放控制：
-  + / =              放大图片
-  -                  缩小图片
-  0                  重置缩放 (100%)
+缩放:
++ / - : 放大 / 缩小
+鼠标滚轮 : 缩放
 
-🔄 旋转控制：
-  R                  向右旋转90°
-  Shift + R          向左旋转90°
-  Ctrl + R           重置旋转 (0°)
+旋转:
+R : 向右旋转90度
 
-🖥️ 显示控制：
-  F11 / F            切换全屏模式
-  ESC                退出全屏/关闭窗口
-  空格                开始/暂停幻灯片
+功能:
+F11 : 切换全屏模式
+Space : 开始幻灯片播放
+I : 显示图片信息
+H : 显示此帮助
+ESC : 退出查看器
 
-ℹ️ 其他功能：
-  I                  显示图片详细信息
-  H / F1             显示此快捷键帮助
-
-💡 提示：
-  • 双击图片也可切换全屏
-  • 使用鼠标滚轮进行缩放
-  • 点击图片获得键盘焦点"""
+鼠标操作:
+滚轮 : 缩放图片"""
         
-        messagebox.showinfo("快捷键帮助", help_text)
+        messagebox.showinfo("帮助", help_text)
     
     def on_mouse_wheel(self, event):
-        """鼠标滚轮事件"""
+        """处理鼠标滚轮事件"""
         if event.delta > 0:
             self.zoom_in()
         else:
             self.zoom_out()
     
     def on_window_resize(self, event):
-        """窗口大小变化事件"""
+        """处理窗口大小变化"""
         # 只在主窗口大小变化时重新加载图片
         if event.widget == self.parent:
             self.parent.after(100, self.load_current_image)
-        self.load_image()
