@@ -34,7 +34,7 @@ jobs:
 
       # 上传构建工件
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: album-scanner-exe
           path: dist/main
