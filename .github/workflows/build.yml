@@ -33,10 +33,24 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      # 安装 UPX (仅 Windows)
+      - name: Install UPX (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          curl -L -o upx.zip https://github.com/upx/upx/releases/download/v4.2.1/upx-4.2.1-win64.zip
+          7z x upx.zip
+          move upx-4.2.1-win64\upx.exe upx.exe
+
       # 打包为可执行文件
-      - name: Build executable
+      - name: Build executable (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           pyinstaller --onefile main.py
+
+      - name: Build executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          pyinstaller --onefile --noconsole --optimize=2 --strip --upx-dir=. main.py
 
       # 上传构建工件
       - name: Upload artifact
