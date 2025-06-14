@@ -400,63 +400,27 @@ class AlbumGrid:
                                 # 安全加载图片
                                 img.load()
                                 
-                                # 创建适应目标尺寸的缩略图
-                                # 对于竖屏预览，我们希望保持宽高比但填满区域
-                                if size[0] >= 200:  # 预览窗口的大尺寸
-                                    # 计算缩放比例以适应目标尺寸
-                                    img_ratio = img.width / img.height
-                                    target_ratio = size[0] / size[1]
-                                    
-                                    if img_ratio > target_ratio:
-                                        # 图片更宽，以高度为准
-                                        new_height = size[1]
-                                        new_width = int(new_height * img_ratio)
-                                    else:
-                                        # 图片更高，以宽度为准
-                                        new_width = size[0]
-                                        new_height = int(new_width / img_ratio)
-                                    
-                                    # 调整图片大小
-                                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                                    
-                                    # 创建目标尺寸的背景
-                                    bg_color = (255, 255, 255, 255)
-                                    bg = Image.new('RGBA', size, bg_color)
-                                    
-                                    # 计算居中位置
-                                    x = (size[0] - new_width) // 2
-                                    y = (size[1] - new_height) // 2
-                                    
-                                    # 确保图片有alpha通道
-                                    if img.mode != 'RGBA':
-                                        img = img.convert('RGBA')
-                                    
-                                    # 粘贴到背景上
-                                    bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
-                                    final_img = bg
-                                else:
-                                    # 小尺寸缩略图（卡片封面）
-                                    img.thumbnail(size, Image.Resampling.LANCZOS)
-                                    
-                                    # 创建背景
-                                    bg_color = (242, 242, 247, 255)
-                                    bg = Image.new('RGBA', size, bg_color)
-                                    
-                                    # 计算居中位置
-                                    img_w, img_h = img.size
-                                    x = (size[0] - img_w) // 2
-                                    y = (size[1] - img_h) // 2
-                                    
-                                    # 确保图片有alpha通道
-                                    if img.mode != 'RGBA':
-                                        img = img.convert('RGBA')
-                                    
-                                    # 粘贴到背景上
-                                    bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
-                                    final_img = bg
+                                # 直接使用传入的尺寸参数创建缩略图
+                                img.thumbnail(size, Image.Resampling.LANCZOS)
+                                
+                                # 创建背景
+                                bg_color = (255, 255, 255, 255)
+                                bg = Image.new('RGBA', size, bg_color)
+                                
+                                # 计算居中位置
+                                img_w, img_h = img.size
+                                x = (size[0] - img_w) // 2
+                                y = (size[1] - img_h) // 2
+                                
+                                # 确保图片有alpha通道
+                                if img.mode != 'RGBA':
+                                    img = img.convert('RGBA')
+                                
+                                # 粘贴到背景上
+                                bg.paste(img, (x, y), img if img.mode == 'RGBA' else None)
                                 
                                 # 转换为PhotoImage
-                                photo = ImageTk.PhotoImage(final_img)
+                                photo = ImageTk.PhotoImage(bg)
                                 
                                 # 缓存图片
                                 target_cache[cache_key] = photo
@@ -481,12 +445,7 @@ class AlbumGrid:
     def _show_preview_window(self, event, album_path, album_name):
         """显示预览浮动窗口"""
         try:
-            # 清除之前的定时器
-            if self.preview_timer:
-                self.parent.after_cancel(self.preview_timer)
-                self.preview_timer = None
-            
-            # 关闭之前的预览窗口
+            # 立即清理之前的预览窗口和所有定时器
             self._hide_preview_window()
             
             # 延迟显示预览窗口（避免鼠标快速移动时频繁弹出）
@@ -499,6 +458,11 @@ class AlbumGrid:
     def _create_preview_window(self, event, album_path, album_name):
         """创建预览浮动窗口"""
         try:
+            # 再次确保没有现有窗口
+            if self.preview_window and self.preview_window.winfo_exists():
+                self.preview_window.destroy()
+                self.preview_window = None
+            
             # 创建顶层窗口
             self.preview_window = tk.Toplevel(self.parent)
             self.preview_window.withdraw()  # 先隐藏
@@ -551,7 +515,7 @@ class AlbumGrid:
             # 显示窗口
             self.preview_window.deiconify()
             
-            # 异步加载竖屏尺寸封面 (200x240)
+            # 异步加载竖屏尺寸封面 - 直接指定尺寸
             self._load_cover_image(album_path, 
                                  lambda photo: self._update_preview_cover(photo),
                                  size=(200, 240))
@@ -621,13 +585,25 @@ class AlbumGrid:
     def _hide_preview_window(self):
         """隐藏预览窗口"""
         try:
+            # 取消所有相关定时器
             if self.preview_timer:
                 self.parent.after_cancel(self.preview_timer)
                 self.preview_timer = None
                 
-            if self.preview_window and self.preview_window.winfo_exists():
-                self.preview_window.destroy()
-                self.preview_window = None
+            # 销毁预览窗口
+            if self.preview_window:
+                try:
+                    if self.preview_window.winfo_exists():
+                        self.preview_window.destroy()
+                except tk.TclError:
+                    # 窗口已经被销毁
+                    pass
+                finally:
+                    self.preview_window = None
+                    
+            # 清理预览封面标签引用
+            if hasattr(self, 'preview_cover_label'):
+                self.preview_cover_label = None
                 
         except Exception as e:
             print(f"隐藏预览窗口时出错: {e}")
@@ -1007,6 +983,10 @@ class AlbumGrid:
     
     def _schedule_hide_preview(self):
         """计划隐藏预览窗口"""
+        # 取消之前的隐藏定时器
+        if self.preview_timer:
+            self.parent.after_cancel(self.preview_timer)
+            
         # 延迟隐藏，给用户时间移动到预览窗口
         self.preview_timer = self.parent.after(200, self._hide_preview_window)
 
