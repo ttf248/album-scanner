@@ -45,19 +45,19 @@ jobs:
       - name: Build executable (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          pyinstaller --onefile main.py
+          pyinstaller --onefile --name comic-reader main.py
 
       - name: Build executable (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          pyinstaller --onefile --noconsole --optimize=2 --strip --upx-dir=. main.py
+          pyinstaller --onefile --noconsole --optimize=2 --strip --upx-dir=. --name comic-reader main.py
 
       # 上传构建工件
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: comic-reader-${{ matrix.os }}
-          path: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          path: dist/comic-reader${{ matrix.os == 'windows-latest' && '.exe' || '' }}
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -86,8 +86,8 @@ jobs:
       # 重命名文件以便更好地识别
       - name: Rename artifacts
         run: |
-          mv ./dist/ubuntu/main ./dist/ubuntu/comic-reader-linux
-          mv ./dist/windows/main.exe ./dist/windows/comic-reader-windows.exe
+          mv ./dist/ubuntu/comic-reader ./dist/ubuntu/comic-reader-linux
+          mv ./dist/windows/comic-reader.exe ./dist/windows/comic-reader-windows.exe
           chmod +x ./dist/ubuntu/comic-reader-linux
 
       # 发布 Release 并上传文件
