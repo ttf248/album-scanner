@@ -120,8 +120,17 @@ class PhotoAlbumApp:
             if self.folder_path:
                 self.path_var.set(self.folder_path)
             
-            # 初始状态
-            self.status_bar.set_status("欢迎使用相册扫描器", "success")
+            # 初始状态 - 根据是否有上次路径显示不同消息
+            if self.folder_path and os.path.exists(self.folder_path):
+                folder_name = os.path.basename(self.folder_path)
+                # 处理长路径名称
+                if len(folder_name) > 30:
+                    display_name = folder_name[:27] + "..."
+                else:
+                    display_name = folder_name
+                self.status_bar.set_status(f"上次路径: {display_name}", "info")
+            else:
+                self.status_bar.set_status("欢迎使用相册扫描器", "success")
             
             print("现代化UI组件创建成功")
             
