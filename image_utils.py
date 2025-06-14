@@ -13,7 +13,7 @@ class ImageProcessor:
     
     @classmethod
     def scan_albums(cls, root_path):
-        """扫描相册文件夹，正确处理Unicode路径"""
+        """扫描相册文件夹，正确处理Unicode路径，支持递归扫描"""
         albums = []
         
         try:
@@ -24,11 +24,22 @@ class ImageProcessor:
                 print(f"路径不存在: {root_path}")
                 return albums
             
-            # 遍历所有子文件夹
-            for item in root_path.iterdir():
+            # 递归遍历所有子文件夹
+            cls._scan_folder_recursive(root_path, albums)
+                        
+        except Exception as e:
+            print(f"扫描根目录时出错 {root_path}: {e}")
+            
+        return albums
+    
+    @classmethod
+    def _scan_folder_recursive(cls, folder_path, albums):
+        """递归扫描文件夹"""
+        try:
+            for item in folder_path.iterdir():
                 if item.is_dir():
                     try:
-                        # 获取文件夹中的图片文件
+                        # 获取当前文件夹中的图片文件
                         image_files = cls.get_image_files(str(item))
                         
                         if image_files and len(image_files) > 0:
@@ -47,15 +58,16 @@ class ImageProcessor:
                                 'folder_size': folder_size
                             }
                             albums.append(album_info)
-                            
+                        
+                        # 递归扫描子文件夹
+                        cls._scan_folder_recursive(item, albums)
+                        
                     except Exception as e:
                         print(f"处理文件夹时出错 {item}: {e}")
                         continue
                         
         except Exception as e:
-            print(f"扫描根目录时出错 {root_path}: {e}")
-            
-        return albums
+            print(f"递归扫描文件夹时出错 {folder_path}: {e}")
     
     @classmethod
     def get_folder_size(cls, image_files):
