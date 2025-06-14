@@ -791,19 +791,21 @@ class AlbumGrid:
                                  lambda photo, label=cover_label: self._update_cover(label, photo),
                                  size=(320, 350))  # 适应420x560卡片的封面尺寸
             
-            # 信息区域
-            info_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'])
+            # 信息区域 - 限制高度确保按钮可见
+            info_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'], height=120)
             info_frame.pack(fill='x', padx=self.card_padding, pady=(0, 8))
+            info_frame.pack_propagate(False)  # 防止子组件改变信息区域高度
             
-            # 相册名称 - 支持多行显示
+            # 相册名称 - 支持多行显示，限制高度
             name_label = tk.Label(info_frame, 
                                 text=album_name,
                                 font=self.style_manager.fonts['subheading'],
                                 bg=self.style_manager.colors['card_bg'], 
                                 fg=self.style_manager.colors['text_primary'], 
-                                anchor='w',
+                                anchor='nw',  # 左上对齐
                                 wraplength=360,  # 设置换行宽度
-                                justify='left')  # 左对齐
+                                justify='left',  # 左对齐
+                                height=3)  # 限制最多3行
             name_label.pack(fill='x')
             
             # 统计信息容器
@@ -824,15 +826,16 @@ class AlbumGrid:
                                  fg=self.style_manager.colors['text_secondary'])
             count_label.pack(side='left', padx=(4, 0))
             
-            # 路径显示 - 支持多行显示
+            # 路径显示 - 支持多行显示，限制高度
             path_label = tk.Label(info_frame, 
                                 text=album_path,
                                 font=self.style_manager.fonts['small'],
                                 bg=self.style_manager.colors['card_bg'], 
                                 fg=self.style_manager.colors['text_tertiary'], 
-                                anchor='w',
+                                anchor='nw',  # 左上对齐
                                 wraplength=360,  # 设置换行宽度
-                                justify='left')  # 左对齐
+                                justify='left',  # 左对齐
+                                height=2)  # 限制最多2行
             path_label.pack(fill='x', pady=(2, 0))
             
             # 为路径添加完整路径的工具提示
