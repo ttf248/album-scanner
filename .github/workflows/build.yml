@@ -25,76 +25,25 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       # 安装依赖
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller==6.2.0
+          pip install pyinstaller
 
-      # 验证Python环境
-      - name: Verify Python environment
-        run: |
-          python --version
-          python -c "import encodings.aliases; print('encodings.aliases module found')"
-          python -c "import sys; print('Python path:', sys.path)"
-          pyinstaller --version
-
-      # 安装UPX压缩工具 (Windows)
-      - name: Install UPX (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install upx -y
-
-      # 安装UPX压缩工具 (Linux)
-      - name: Install UPX (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y upx
-
-      # 打包为可执行文件 (使用优化的spec文件)
+      # 打包为可执行文件
       - name: Build executable
         run: |
-          # 显示当前目录内容用于调试
-          ls -la
-          # 清理之前的构建
-          rm -rf build/ dist/
-          # 显示Python环境信息
-          python -c "import sys; print('Python executable:', sys.executable)"
-          python -c "import sys; print('Python path:', sys.path)"
-          python -c "import encodings.aliases; print('encodings.aliases imported successfully')"
-          # 尝试直接使用 PyInstaller 而不是 spec 文件
-          if [ -f "album-scanner.spec" ]; then
-            echo "Using spec file..."
-            pyinstaller --clean --noconfirm album-scanner.spec
-          else
-            echo "Using direct PyInstaller command..."
-            pyinstaller --onefile --name album-scanner --hidden-import=encodings.aliases --hidden-import=re main.py
-          fi
-
-      # 进一步压缩可执行文件 (Windows)
-      - name: Compress executable (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          upx --best --lzma dist/album-scanner.exe
-        continue-on-error: true
-
-      # 进一步压缩可执行文件 (Linux)
-      - name: Compress executable (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          upx --best --lzma dist/album-scanner
-        continue-on-error: true
+          pyinstaller --onefile main.py
 
       # 上传构建工件
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: album-scanner-${{ matrix.os }}
-          path: dist/album-scanner${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          path: dist/main${{ matrix.os == 'windows-latest' && '.exe' || '' }}
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -123,8 +72,8 @@ jobs:
       # 重命名文件以便更好地识别
       - name: Rename artifacts
         run: |
-          mv ./dist/ubuntu/album-scanner ./dist/ubuntu/album-scanner-linux
-          mv ./dist/windows/album-scanner.exe ./dist/windows/album-scanner-windows.exe
+          mv ./dist/ubuntu/main ./dist/ubuntu/album-scanner-linux
+          mv ./dist/windows/main.exe ./dist/windows/album-scanner-windows.exe
           chmod +x ./dist/ubuntu/album-scanner-linux
 
       # 发布 Release 并上传文件
