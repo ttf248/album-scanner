@@ -5,6 +5,9 @@ from PIL import Image, ImageTk, ExifTags
 from pathlib import Path
 import threading
 import time
+import difflib
+import re
+import os
 
 class ImageProcessor:
     """图片处理器，负责图片的扫描、加载和处理"""
@@ -70,6 +73,9 @@ class ImageProcessor:
                         
         except Exception as e:
             print(f"扫描根目录时出错 {root_path}: {e}")
+        
+        # 智能分组：对非合集的相册进行相似度分析
+        albums = cls._create_smart_groups(albums)
             
         return albums
     
@@ -109,6 +115,170 @@ class ImageProcessor:
                         
         except Exception as e:
             print(f"递归扫描文件夹时出错 {folder_path}: {e}")
+    
+    @classmethod
+    def _create_smart_groups(cls, albums):
+        """智能分组：基于路径名称相似度创建智能合集"""
+        if len(albums) < 2:
+            return albums
+        
+        # 分离已有的合集和单个相册
+        collections = [album for album in albums if album.get('type') == 'collection']
+        single_albums = [album for album in albums if album.get('type') == 'album']
+        
+        if len(single_albums) < 2:
+            return albums
+        
+        # 对单个相册进行智能分组
+        smart_groups = cls._group_similar_albums(single_albums)
+        
+        # 合并结果：保留原有合集 + 智能分组合集 + 未分组的单个相册
+        result = collections
+        
+        for group in smart_groups:
+            if len(group) >= 2:  # 至少2个相册才创建智能合集
+                smart_collection = cls._create_smart_collection(group)
+                result.append(smart_collection)
+            else:
+                # 单个相册保持原样
+                result.extend(group)
+        
+        return result
+    
+    @classmethod
+    def _group_similar_albums(cls, albums):
+        """根据名称相似度对相册进行分组"""
+        groups = []
+        used_indices = set()
+        
+        for i, album in enumerate(albums):
+            if i in used_indices:
+                continue
+            
+            # 创建新组，包含当前相册
+            current_group = [album]
+            used_indices.add(i)
+            
+            # 查找与当前相册相似的其他相册
+            for j, other_album in enumerate(albums):
+                if j in used_indices or i == j:
+                    continue
+                
+                similarity = cls._calculate_name_similarity(album['name'], other_album['name'])
+                if similarity >= 0.6:  # 相似度阈值
+                    current_group.append(other_album)
+                    used_indices.add(j)
+            
+            groups.append(current_group)
+        
+        return groups
+    
+    @classmethod
+    def _calculate_name_similarity(cls, name1, name2):
+        """计算两个名称的相似度"""
+        # 预处理名称：移除特殊字符、数字、空格，转为小写
+        clean_name1 = cls._clean_name_for_comparison(name1)
+        clean_name2 = cls._clean_name_for_comparison(name2)
+        
+        if not clean_name1 or not clean_name2:
+            return 0.0
+        
+        # 使用difflib计算序列相似度
+        similarity = difflib.SequenceMatcher(None, clean_name1, clean_name2).ratio()
+        
+        # 额外检查：如果一个名称是另一个的子串，提高相似度
+        if clean_name1 in clean_name2 or clean_name2 in clean_name1:
+            similarity = max(similarity, 0.8)
+        
+        # 检查共同的关键词
+        words1 = set(clean_name1.split())
+        words2 = set(clean_name2.split())
+        if words1 and words2:
+            word_similarity = len(words1.intersection(words2)) / len(words1.union(words2))
+            similarity = max(similarity, word_similarity * 0.9)
+        
+        return similarity
+    
+    @classmethod
+    def _clean_name_for_comparison(cls, name):
+        """清理名称用于比较"""
+        # 移除常见的版本号、集数等模式
+        patterns_to_remove = [
+            r'\b(第|第\d+|\d+)\s*[卷册集话回期部季]\b',  # 第X卷、第X集等
+            r'\b(vol|volume|ch|chapter|ep|episode)\s*\d+\b',  # vol1, chapter1等
+            r'\b\d{1,3}\b',  # 单独的数字
+            r'[\[\(（].*?[\]\)）]',  # 括号内容
+            r'[_\-\s]+',  # 连字符、下划线、空格
+        ]
+        
+        cleaned = name.lower()
+        for pattern in patterns_to_remove:
+            cleaned = re.sub(pattern, ' ', cleaned, flags=re.IGNORECASE)
+        
+        # 移除多余空格并返回
+        return ' '.join(cleaned.split())
+    
+    @classmethod
+    def _create_smart_collection(cls, albums):
+        """创建智能分组合集"""
+        if not albums:
+            return None
+        
+        # 找到最具代表性的名称作为合集名称
+        collection_name = cls._generate_collection_name(albums)
+        
+        # 计算合集统计信息
+        total_images = sum(album['image_count'] for album in albums)
+        total_size_bytes = sum(cls._parse_size_to_bytes(album['folder_size']) for album in albums)
+        
+        # 选择封面：优先选择图片数量最多的相册的封面
+        cover_album = max(albums, key=lambda x: x['image_count'])
+        cover_image = cover_album['cover_image']
+        
+        # 创建虚拟路径（用于标识这是智能分组）
+        base_path = Path(albums[0]['path']).parent
+        virtual_path = str(base_path / f"[智能分组] {collection_name}")
+        
+        return {
+            'path': virtual_path,
+            'name': f"[智能分组] {collection_name}",
+            'albums': albums,
+            'cover_image': cover_image,
+            'album_count': len(albums),
+            'image_count': total_images,
+            'folder_size': cls.format_size(total_size_bytes),
+            'type': 'smart_collection'  # 标记为智能分组合集
+        }
+    
+    @classmethod
+    def _generate_collection_name(cls, albums):
+        """为智能分组生成合集名称"""
+        if not albums:
+            return "未知合集"
+        
+        # 获取所有相册的清理后名称
+        cleaned_names = [cls._clean_name_for_comparison(album['name']) for album in albums]
+        
+        # 找到最长的公共子串
+        if len(cleaned_names) == 1:
+            return albums[0]['name']
+        
+        # 找到所有名称的公共部分
+        common_words = set(cleaned_names[0].split())
+        for name in cleaned_names[1:]:
+            common_words &= set(name.split())
+        
+        if common_words:
+            # 使用公共词汇作为合集名称
+            collection_name = ' '.join(sorted(common_words))
+        else:
+            # 如果没有公共词汇，使用第一个相册的名称并添加"系列"
+            first_name = albums[0]['name']
+            # 移除数字和特殊符号
+            base_name = re.sub(r'[\d\[\]\(\)（）_\-]+', ' ', first_name).strip()
+            collection_name = f"{base_name} 系列" if base_name else "相关系列"
+        
+        return collection_name.title()  # 首字母大写
     
     @classmethod
     def get_folder_size(cls, image_files):

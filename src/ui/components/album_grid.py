@@ -791,6 +791,12 @@ class AlbumGrid:
                 image_count = album.get('image_count', 0)
                 display_text = f'{album_count} 个相册'
                 icon = '📚'  # 合集图标
+            elif album_type == 'smart_collection':
+                # 智能分组合集信息
+                album_count = album.get('album_count', 0)
+                image_count = album.get('image_count', 0)
+                display_text = f'{album_count} 个相册'
+                icon = '🧠'  # 智能分组图标
             else:
                 # 单个相册信息
                 image_count = album.get('image_count', 0)
@@ -861,6 +867,17 @@ class AlbumGrid:
                     cover_label.configure(text='📚\n合集', 
                                         font=self.style_manager.fonts['body'],
                                         fg=self.style_manager.colors['text_tertiary'])
+            elif album_type == 'smart_collection':
+                # 智能分组使用选定的封面
+                cover_image = album.get('cover_image')
+                if cover_image:
+                    self._load_specific_cover_image(cover_image, 
+                                                   lambda photo, label=cover_label: self._update_cover(label, photo),
+                                                   size=(320, 350))
+                else:
+                    cover_label.configure(text='🧠\n智能分组', 
+                                        font=self.style_manager.fonts['body'],
+                                        fg=self.style_manager.colors['text_tertiary'])
             else:
                 # 单个相册正常加载
                 self._load_cover_image(album_path, 
@@ -913,8 +930,8 @@ class AlbumGrid:
             count_label.pack(side='left', padx=(4, 0))
             count_label.bind("<Button-3>", show_menu)
             
-            # 如果是合集，显示总图片数
-            if album_type == 'collection' and image_count > 0:
+            # 如果是合集或智能分组，显示总图片数
+            if (album_type == 'collection' or album_type == 'smart_collection') and image_count > 0:
                 total_label = tk.Label(stats_frame, 
                                      text=f'共 {image_count} 张图片',
                                      font=self.style_manager.fonts['small'],
@@ -948,6 +965,12 @@ class AlbumGrid:
                 open_btn_style = self.style_manager.get_button_style('collection')
                 hover_color = self.style_manager.colors['button_collection_hover']
                 normal_color = self.style_manager.colors['button_collection']
+            elif album_type == 'smart_collection':
+                btn_text = '🧠 智能分组'
+                open_command = lambda: self._open_collection(album)
+                open_btn_style = self.style_manager.get_button_style('smart_collection')
+                hover_color = self.style_manager.colors['button_smart_collection_hover']
+                normal_color = self.style_manager.colors['button_smart_collection']
             else:
                 btn_text = '📂 打开漫画'
                 open_command = lambda: self.open_callback(album_path)

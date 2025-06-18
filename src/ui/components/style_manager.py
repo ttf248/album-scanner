@@ -72,6 +72,8 @@ class StyleManager:
             'button_danger_hover': '#C0392B',
             'button_collection': '#8E44AD', # 合集按钮 - 紫色
             'button_collection_hover': '#7D3C98',
+            'button_smart_collection': '#E67E22', # 智能分组按钮 - 橙色
+            'button_smart_collection_hover': '#D35400',
             
             # 输入框
             'input_bg': '#FFFFFF',
@@ -228,6 +230,16 @@ class StyleManager:
                 'bg': self.colors['button_collection'],
                 'fg': self.colors['text_white'],
                 'activebackground': self.colors['button_collection_hover'],
+                'activeforeground': self.colors['text_white'],
+                'font': self.fonts['button'],
+                'relief': 'flat',
+                'borderwidth': 0,
+                'cursor': 'hand2'
+            },
+            'smart_collection': {
+                'bg': self.colors['button_smart_collection'],
+                'fg': self.colors['text_white'],
+                'activebackground': self.colors['button_smart_collection_hover'],
                 'activeforeground': self.colors['text_white'],
                 'font': self.fonts['button'],
                 'relief': 'flat',
