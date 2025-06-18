@@ -183,6 +183,48 @@ class StatusBar:
         else:
             self.set_status("扫描完成，未发现漫画", 'warning')
     
+    def set_detailed_scan_results(self, collections=0, smart_collections=0, albums=0, 
+                                total_images=0, collection_albums=0, smart_albums=0, scan_time=None):
+        """设置详细的扫描结果统计信息"""
+        # 构建状态文本
+        status_parts = []
+        if collections > 0:
+            status_parts.append(f"📚 {collections} 个合集")
+        if smart_collections > 0:
+            status_parts.append(f"🧠 {smart_collections} 个智能分组")
+        if albums > 0:
+            status_parts.append(f"🖼️ {albums} 个独立相册")
+        
+        total_items = collections + smart_collections + albums
+        
+        if status_parts:
+            status_text = "扫描完成，找到 " + "、".join(status_parts)
+            if total_items > 10:
+                status_text += "（支持滚动浏览）"
+        else:
+            status_text = "扫描完成，未发现漫画内容"
+        
+        # 构建详细信息文本
+        info_parts = [f"共 {total_images} 张图片"]
+        
+        if collection_albums > 0:
+            info_parts.append(f"合集包含 {collection_albums} 个相册")
+        if smart_albums > 0:
+            info_parts.append(f"智能分组包含 {smart_albums} 个相册")
+        
+        if scan_time:
+            info_parts.append(f"耗时 {scan_time:.1f}s")
+        
+        info_text = " | ".join(info_parts)
+        
+        # 设置状态和信息
+        if total_items > 0:
+            self.set_status(status_text, 'success')
+        else:
+            self.set_status(status_text, 'warning')
+        
+        self.set_info(info_text)
+    
     def show_loading(self, message="正在处理..."):
         """显示加载状态"""
         self.set_status(message, 'loading')

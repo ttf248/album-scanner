@@ -54,40 +54,49 @@ class AlbumScannerService:
         self.app.cached_scan_path = None
     
     def _display_scan_results(self):
-        """显示扫描结果 - 支持合集和相册"""
+        """显示扫描结果 - 支持合集、智能分组和相册"""
         self.app.album_grid.display_albums(self.app.albums)
         
-        # 统计合集和相册信息
+        # 统计不同类型的项目
         collections = [item for item in self.app.albums if item.get('type') == 'collection']
+        smart_collections = [item for item in self.app.albums if item.get('type') == 'smart_collection']
         albums = [item for item in self.app.albums if item.get('type') == 'album']
         
         # 计算总图片数
         total_images = 0
         for item in self.app.albums:
-            if item.get('type') == 'collection':
+            if item.get('type') in ['collection', 'smart_collection']:
                 total_images += item.get('image_count', 0)
             else:
                 total_images += len(item.get('image_files', []))
         
-        # 构建状态信息
-        status_parts = []
-        if collections:
-            status_parts.append(f"{len(collections)} 个合集")
-        if albums:
-            status_parts.append(f"{len(albums)} 个相册")
+        # 统计各类型中包含的相册数
+        collection_albums = sum(item.get('album_count', 0) for item in collections)
+        smart_albums = sum(item.get('album_count', 0) for item in smart_collections)
         
-        status_text = "扫描完成，找到 " + "、".join(status_parts)
-        if len(self.app.albums) > 10:
-            status_text += "（支持滚动浏览）"
-        
-        self.app.status_bar.set_status(status_text)
-        self.app.status_bar.set_info(f"共 {total_images} 张图片")
+        # 使用详细的状态设置方法
+        self.app.status_bar.set_detailed_scan_results(
+            collections=len(collections),
+            smart_collections=len(smart_collections),
+            albums=len(albums),
+            total_images=total_images,
+            collection_albums=collection_albums,
+            smart_albums=smart_albums
+        )
         
         # 如果项目很多，提示用户可以滚动和使用快捷键
         if len(self.app.albums) > 15:
             tip_text = f"找到 {len(self.app.albums)} 个项目！\n\n"
-            if collections:
-                tip_text += "📚 合集功能：\n• 点击合集可查看其中的相册\n\n"
+            
+            # 添加功能说明
+            if collections or smart_collections:
+                tip_text += "📚 功能说明：\n"
+                if collections:
+                    tip_text += "• 📚 合集：手动创建的相册集合\n"
+                if smart_collections:
+                    tip_text += "• 🧠 智能分组：基于名称相似度自动分组\n"
+                tip_text += "• 点击可查看其中的相册\n\n"
+            
             tip_text += ("📋 浏览提示：\n"
                         "• 使用鼠标滚轮浏览所有内容\n"
                         "• 🏠 首页按钮返回扫描结果\n"
