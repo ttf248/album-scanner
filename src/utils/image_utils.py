@@ -75,7 +75,7 @@ class ImageProcessor:
             print(f"扫描根目录时出错 {root_path}: {e}")
         
         # 智能分组：对非合集的相册进行相似度分析
-        albums = cls._create_smart_groups(albums)
+        albums = cls.create_smart_groups(albums)
             
         return albums
     
@@ -117,8 +117,8 @@ class ImageProcessor:
             print(f"递归扫描文件夹时出错 {folder_path}: {e}")
     
     @classmethod
-    def _create_smart_groups(cls, albums):
-        """智能分组：基于路径名称相似度创建智能合集"""
+    def create_smart_groups(cls, albums):
+        """智能分组：基于路径名称相似度和作者信息创建智能合集"""
         if len(albums) < 2:
             return albums
         
@@ -129,13 +129,28 @@ class ImageProcessor:
         if len(single_albums) < 2:
             return albums
         
-        # 对单个相册进行智能分组
-        smart_groups = cls._group_similar_albums(single_albums)
+        # 首先按作者进行分组
+        author_groups = cls._group_by_author(single_albums)
         
-        # 合并结果：保留原有合集 + 智能分组合集 + 未分组的单个相册
+        # 对剩余相册进行名称相似度分组
+        remaining_albums = []
+        for group in author_groups:
+            if len(group) == 1:
+                remaining_albums.extend(group)
+        
+        name_groups = cls._group_similar_albums(remaining_albums) if remaining_albums else []
+        
+        # 合并结果：保留原有合集 + 作者分组 + 名称分组 + 未分组的单个相册
         result = collections
         
-        for group in smart_groups:
+        # 添加作者分组
+        for group in author_groups:
+            if len(group) >= 2:  # 至少2个相册才创建智能合集
+                smart_collection = cls._create_smart_collection(group)
+                result.append(smart_collection)
+        
+        # 添加名称分组
+        for group in name_groups:
             if len(group) >= 2:  # 至少2个相册才创建智能合集
                 smart_collection = cls._create_smart_collection(group)
                 result.append(smart_collection)
@@ -144,6 +159,42 @@ class ImageProcessor:
                 result.extend(group)
         
         return result
+    
+    @classmethod
+    def _group_by_author(cls, albums):
+        """根据作者信息对相册进行分组"""
+        author_groups = {}
+        ungrouped_albums = []
+        
+        for album in albums:
+            author = cls._extract_author_from_name(album['name'])
+            if author:
+                if author not in author_groups:
+                    author_groups[author] = []
+                author_groups[author].append(album)
+            else:
+                ungrouped_albums.append(album)
+        
+        # 返回分组结果：作者分组 + 未分组的相册（作为单独的组）
+        groups = list(author_groups.values())
+        for album in ungrouped_albums:
+            groups.append([album])
+        
+        return groups
+    
+    @classmethod
+    def _extract_author_from_name(cls, name):
+        """从相册名称中提取作者信息 - 识别第一个方括号内的字符作为作者信息"""
+        import re
+        
+        # 匹配第一个方括号内的内容作为作者信息
+        author_match = re.search(r'\[([^\]]+)\]', name)
+        if author_match:
+            author = author_match.group(1).strip()
+            # 直接返回第一个方括号内的内容作为作者信息
+            return author if author else None
+        
+        return None
     
     @classmethod
     def _group_similar_albums(cls, albums):
