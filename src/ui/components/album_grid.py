@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox, Toplevel
 import os
+import subprocess
+import platform
 from ...utils.image_utils import ImageProcessor, SlideshowManager
 from ...utils.image_cache import get_image_cache
 from PIL import Image, ImageTk
@@ -43,6 +45,10 @@ class AlbumGrid:
         self.min_columns = 1   # 最小列数
         self.max_columns = 6   # 最大列数
         
+        # 右键菜单
+        self.context_menu = None
+        self.current_album_path = None  # 当前右键点击的相册路径
+        
         # 确保初始化grid_frame
         self.grid_frame = None
         self.canvas = None
@@ -50,7 +56,182 @@ class AlbumGrid:
         self.scrollable_frame = None
         self.create_widgets()
         self.create_empty_state()
+        self._create_context_menu()
     
+    def _create_context_menu(self):
+        """创建右键菜单"""
+        try:
+            self.context_menu = tk.Menu(self.parent, tearoff=0)
+            
+            # 添加菜单项 - 注意索引顺序
+            self.context_menu.add_command(
+                label="📂 打开相册", 
+                command=self._open_album_from_menu
+            )
+            self.context_menu.add_command(
+                label="📁 打开所在文件夹", 
+                command=self._open_folder_from_menu
+            )
+            self.context_menu.add_separator()  # 索引 2
+            self.context_menu.add_command(   # 索引 3
+                label="⭐ 添加/移除收藏", 
+                command=self._toggle_favorite_from_menu
+            )
+            self.context_menu.add_separator()  # 索引 4
+            self.context_menu.add_command(   # 索引 5
+                label="📋 复制路径", 
+                command=self._copy_path_from_menu
+            )
+            self.context_menu.add_command(   # 索引 6
+                label="🔍 显示属性", 
+                command=self._show_album_properties
+            )
+            
+            print("右键菜单创建成功")
+            
+        except Exception as e:
+            print(f"创建右键菜单失败: {e}")
+    
+    def _open_album_from_menu(self):
+        """从右键菜单打开相册"""
+        if self.current_album_path and self.open_callback:
+            self.open_callback(self.current_album_path)
+    
+    def _open_folder_from_menu(self):
+        """从右键菜单打开所在文件夹"""
+        if self.current_album_path:
+            self._open_folder_in_explorer(self.current_album_path)
+    
+    def _toggle_favorite_from_menu(self):
+        """从右键菜单切换收藏状态"""
+        if self.current_album_path and self.favorite_callback:
+            self.favorite_callback(self.current_album_path)
+    
+    def _copy_path_from_menu(self):
+        """从右键菜单复制路径"""
+        if self.current_album_path:
+            try:
+                self.parent.clipboard_clear()
+                self.parent.clipboard_append(self.current_album_path)
+                # 显示提示
+                if hasattr(self, 'status_callback'):
+                    self.status_callback(f"路径已复制: {os.path.basename(self.current_album_path)}")
+                print(f"路径已复制到剪贴板: {self.current_album_path}")
+            except Exception as e:
+                print(f"复制路径失败: {e}")
+                messagebox.showerror("错误", f"复制路径失败: {str(e)}")
+    
+    def _show_album_properties(self):
+        """显示相册属性"""
+        if not self.current_album_path:
+            return
+        
+        try:
+            # 获取相册信息
+            album_name = os.path.basename(self.current_album_path)
+            image_files = ImageProcessor.get_image_files(self.current_album_path)
+            
+            # 计算文件夹大小
+            total_size = 0
+            for image_file in image_files:
+                try:
+                    total_size += os.path.getsize(image_file)
+                except:
+                    continue
+            
+            size_mb = total_size / (1024 * 1024)
+            
+            # 获取文件夹创建和修改时间
+            try:
+                stat_info = os.stat(self.current_album_path)
+                import time
+                created_time = time.ctime(stat_info.st_ctime)
+                modified_time = time.ctime(stat_info.st_mtime)
+            except:
+                created_time = "未知"
+                modified_time = "未知"
+            
+            # 构建属性信息
+            properties_text = f"""相册属性信息
+
+相册名称: {album_name}
+完整路径: {self.current_album_path}
+
+图片信息:
+• 图片数量: {len(image_files)} 张
+• 文件夹大小: {size_mb:.1f} MB
+
+时间信息:
+• 创建时间: {created_time}
+• 修改时间: {modified_time}
+
+收藏状态: {'已收藏' if self.is_favorite and self.is_favorite(self.current_album_path) else '未收藏'}"""
+            
+            # 显示属性对话框
+            messagebox.showinfo(f"相册属性 - {album_name}", properties_text)
+            
+        except Exception as e:
+            print(f"显示相册属性失败: {e}")
+            messagebox.showerror("错误", f"无法获取相册属性: {str(e)}")
+    
+    def _open_folder_in_explorer(self, folder_path):
+        """在文件管理器中打开文件夹"""
+        try:
+            system = platform.system()
+            
+            if system == "Windows":
+                # Windows系统使用explorer
+                subprocess.run(['explorer', '/select,', folder_path], check=False)
+            elif system == "Darwin":  # macOS
+                # macOS系统使用open
+                subprocess.run(['open', '-R', folder_path], check=False)
+            elif system == "Linux":
+                # Linux系统尝试使用不同的文件管理器
+                file_managers = ['nautilus', 'dolphin', 'thunar', 'pcmanfm', 'caja']
+                opened = False
+                
+                for fm in file_managers:
+                    try:
+                        subprocess.run([fm, folder_path], check=True)
+                        opened = True
+                        break
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        continue
+                
+                if not opened:
+                    # 如果所有文件管理器都失败，尝试用xdg-open
+                    subprocess.run(['xdg-open', folder_path], check=False)
+            else:
+                # 其他系统，尝试通用方法
+                subprocess.run(['xdg-open', folder_path], check=False)
+            
+            print(f"已在文件管理器中打开: {folder_path}")
+            
+        except Exception as e:
+            print(f"打开文件夹失败: {e}")
+            messagebox.showerror("错误", f"无法打开文件夹: {str(e)}")
+    
+    def _show_context_menu(self, event, album_path):
+        """显示右键菜单"""
+        try:
+            self.current_album_path = album_path
+            print(f"右键点击相册: {os.path.basename(album_path)}")
+            
+            # 更新收藏菜单项状态 - 修正索引为3
+            if self.is_favorite and self.is_favorite(album_path):
+                self.context_menu.entryconfig(3, label="⭐ 移除收藏")
+            else:
+                self.context_menu.entryconfig(3, label="☆ 添加收藏")
+            
+            # 显示菜单
+            self.context_menu.post(event.x_root, event.y_root)
+            print(f"右键菜单已显示在位置: ({event.x_root}, {event.y_root})")
+            
+        except Exception as e:
+            print(f"显示右键菜单失败: {e}")
+            import traceback
+            traceback.print_exc()
+
     def create_widgets(self):
         """创建现代化网格组件"""
         try:
@@ -563,6 +744,14 @@ class AlbumGrid:
                           height=560)
             card.pack_propagate(False)  # 禁止子组件改变卡片大小
             
+            # 绑定右键菜单到卡片 - 使用更强的绑定
+            def show_menu(event):
+                print(f"卡片右键事件触发: {album_path}")
+                self._show_context_menu(event, album_path)
+                return "break"  # 阻止事件继续传播
+            
+            card.bind("<Button-3>", show_menu)
+            
             # 添加卡片悬浮效果
             self.style_manager.create_hover_effect(
                 card,
@@ -573,7 +762,7 @@ class AlbumGrid:
             # 封面区域 - 适应420x560卡片尺寸
             cover_frame = tk.Frame(card, 
                                  bg=self.style_manager.colors['card_bg'], 
-                                 height=350)  # 调整高度适应新卡片尺寸
+                                 height=350)
             cover_frame.pack(fill='x', padx=self.card_padding, pady=(self.card_padding, 8))
             cover_frame.pack_propagate(False)
             
@@ -583,6 +772,9 @@ class AlbumGrid:
                                      relief='flat')
             cover_container.pack(fill='both', expand=True)
             
+            # 绑定右键菜单到封面容器
+            cover_container.bind("<Button-3>", show_menu)
+            
             # 封面图片标签
             cover_label = tk.Label(cover_container, 
                                  bg=self.style_manager.colors['bg_tertiary'], 
@@ -591,32 +783,43 @@ class AlbumGrid:
                                  fg=self.style_manager.colors['text_tertiary'])
             cover_label.pack(fill='both', expand=True)
             
-            # 异步加载封面 - 适应新卡片尺寸
+            # 绑定右键菜单到封面标签
+            cover_label.bind("<Button-3>", show_menu)
+            
+            # 异步加载封面
             self._load_cover_image(album_path, 
                                  lambda photo, label=cover_label: self._update_cover(label, photo),
-                                 size=(320, 350)  # 适应420x560卡片的封面尺寸
-            )
+                                 size=(320, 350))
             
             # 信息区域 - 限制高度确保按钮可见
             info_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'], height=120)
             info_frame.pack(fill='x', padx=self.card_padding, pady=(0, 8))
-            info_frame.pack_propagate(False)  # 防止子组件改变信息区域高度
+            info_frame.pack_propagate(False)
             
-            # 漫画名称 - 支持多行显示，限制高度
+            # 绑定右键菜单到信息区域
+            info_frame.bind("<Button-3>", show_menu)
+            
+            # 漫画名称
             name_label = tk.Label(info_frame, 
                                 text=album_name,
                                 font=self.style_manager.fonts['subheading'],
                                 bg=self.style_manager.colors['card_bg'], 
                                 fg=self.style_manager.colors['text_primary'], 
-                                anchor='nw',  # 左上对齐
-                                wraplength=360,  # 设置换行宽度
-                                justify='left',  # 左对齐
-                                height=3)  # 限制最多3行
+                                anchor='nw',
+                                wraplength=360,
+                                justify='left',
+                                height=3)
             name_label.pack(fill='x')
+            
+            # 绑定右键菜单到名称标签
+            name_label.bind("<Button-3>", show_menu)
             
             # 统计信息容器
             stats_frame = tk.Frame(info_frame, bg=self.style_manager.colors['card_bg'])
             stats_frame.pack(fill='x', pady=(4, 0))
+            
+            # 绑定右键菜单到统计信息
+            stats_frame.bind("<Button-3>", show_menu)
             
             # 图片数量
             count_icon = tk.Label(stats_frame, 
@@ -624,6 +827,7 @@ class AlbumGrid:
                                 font=self.style_manager.fonts['caption'],
                                 bg=self.style_manager.colors['card_bg'])
             count_icon.pack(side='left')
+            count_icon.bind("<Button-3>", show_menu)
             
             count_label = tk.Label(stats_frame, 
                                  text=f'{image_count} 张图片',
@@ -631,24 +835,25 @@ class AlbumGrid:
                                  bg=self.style_manager.colors['card_bg'], 
                                  fg=self.style_manager.colors['text_secondary'])
             count_label.pack(side='left', padx=(4, 0))
+            count_label.bind("<Button-3>", show_menu)
             
-            # 路径显示 - 支持多行显示，限制高度
+            # 路径显示
             path_label = tk.Label(info_frame, 
                                 text=album_path,
                                 font=self.style_manager.fonts['small'],
                                 bg=self.style_manager.colors['card_bg'], 
                                 fg=self.style_manager.colors['text_tertiary'], 
-                                anchor='nw',  # 左上对齐
-                                wraplength=360,  # 设置换行宽度
-                                justify='left',  # 左对齐
-                                height=2)  # 限制最多2行
+                                anchor='nw',
+                                wraplength=360,
+                                justify='left',
+                                height=2)
             path_label.pack(fill='x', pady=(2, 0))
-            
-            # 移除路径的 tooltip
+            path_label.bind("<Button-3>", show_menu)
             
             # 按钮区域
             button_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'])
             button_frame.pack(fill='x', padx=self.card_padding, pady=(0, self.card_padding))
+            button_frame.bind("<Button-3>", show_menu)
             
             # 打开按钮
             open_btn_style = self.style_manager.get_button_style('primary')
@@ -665,8 +870,6 @@ class AlbumGrid:
                 self.style_manager.colors['button_primary_hover'],
                 self.style_manager.colors['button_primary']
             )
-            
-            # 移除打开按钮的 tooltip
             
             # 收藏按钮
             is_fav = self.is_favorite(album_path) if self.is_favorite else False
@@ -690,22 +893,33 @@ class AlbumGrid:
                 fav_style['bg']
             )
             
-            # 移除收藏按钮的 tooltip
+            # 添加双击打开功能
+            def on_double_click(event):
+                print(f"双击打开相册: {album_path}")
+                self.open_callback(album_path)
+                return "break"
             
+            # 为所有主要组件绑定双击事件
+            for widget in [card, cover_container, cover_label, info_frame, name_label]:
+                widget.bind("<Double-Button-1>", on_double_click)
+            
+            print(f"创建卡片完成，路径: {album_path}")
             return card
             
         except Exception as e:
             print(f"创建漫画卡片时出错: {e}")
-            # 返回一个现代化的错误卡片
+            import traceback
+            traceback.print_exc()
+            # 返回错误卡片
             error_card = tk.Frame(parent, 
-                                bg=self.style_manager.colors['error_light'],
+                                bg=self.style_manager.colors.get('error_light', '#ffebee'),
                                 relief='flat', 
                                 bd=1)
             error_label = tk.Label(error_card, 
                                  text='❌ 加载失败',
                                  font=self.style_manager.fonts['body'],
-                                 bg=self.style_manager.colors['error_light'], 
-                                 fg=self.style_manager.colors['error'])
+                                 bg=self.style_manager.colors.get('error_light', '#ffebee'), 
+                                 fg=self.style_manager.colors.get('error', '#d32f2f'))
             error_label.pack(pady=20)
             return error_card
     
