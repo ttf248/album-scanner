@@ -241,7 +241,7 @@ class ImageProcessor:
         
         return {
             'path': virtual_path,
-            'name': f"[智能分组] {collection_name}",
+            'name': collection_name,  # 直接使用生成的名称，不重复添加前缀
             'albums': albums,
             'cover_image': cover_image,
             'album_count': len(albums),
@@ -256,12 +256,11 @@ class ImageProcessor:
         if not albums:
             return "未知合集"
         
+        if len(albums) == 1:
+            return albums[0]['name']
+        
         # 获取所有相册的清理后名称
         cleaned_names = [cls._clean_name_for_comparison(album['name']) for album in albums]
-        
-        # 找到最长的公共子串
-        if len(cleaned_names) == 1:
-            return albums[0]['name']
         
         # 找到所有名称的公共部分
         common_words = set(cleaned_names[0].split())
@@ -269,16 +268,38 @@ class ImageProcessor:
             common_words &= set(name.split())
         
         if common_words:
-            # 使用公共词汇作为合集名称
-            collection_name = ' '.join(sorted(common_words))
+            # 过滤掉过短的词汇（如单个字符）
+            meaningful_words = [word for word in common_words if len(word) > 1]
+            if meaningful_words:
+                # 按原始顺序排列公共词汇
+                first_name_words = cleaned_names[0].split()
+                ordered_words = [word for word in first_name_words if word in meaningful_words]
+                collection_name = ' '.join(ordered_words)
+            else:
+                # 如果没有有意义的公共词汇，使用第一个相册的主要部分
+                collection_name = cls._extract_main_title(albums[0]['name'])
         else:
-            # 如果没有公共词汇，使用第一个相册的名称并添加"系列"
-            first_name = albums[0]['name']
-            # 移除数字和特殊符号
-            base_name = re.sub(r'[\d\[\]\(\)（）_\-]+', ' ', first_name).strip()
-            collection_name = f"{base_name} 系列" if base_name else "相关系列"
+            # 如果没有公共词汇，提取第一个相册的主要标题
+            collection_name = cls._extract_main_title(albums[0]['name'])
         
-        return collection_name.title()  # 首字母大写
+        # 确保名称不为空
+        if not collection_name.strip():
+            collection_name = "相关系列"
+        
+        return collection_name.strip()
+    
+    @classmethod
+    def _extract_main_title(cls, name):
+        """从相册名称中提取主要标题"""
+        # 移除常见的数字标识和特殊符号
+        main_title = re.sub(r'[\[\]\(\)（）].*?[\[\]\(\)（）]', '', name)  # 移除括号内容
+        main_title = re.sub(r'第\d+[卷册话集部]', '', main_title)  # 移除"第X卷"等
+        main_title = re.sub(r'[vV]\d+', '', main_title)  # 移除版本号
+        main_title = re.sub(r'\d+$', '', main_title)  # 移除末尾数字
+        main_title = re.sub(r'[_\-]+', ' ', main_title)  # 替换连接符为空格
+        main_title = re.sub(r'\s+', ' ', main_title)  # 合并多个空格
+        
+        return main_title.strip()
     
     @classmethod
     def get_folder_size(cls, image_files):
