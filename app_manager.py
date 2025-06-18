@@ -126,6 +126,9 @@ class PhotoAlbumApp:
             # 设置组件间的引用
             self.album_grid.nav_bar = self.nav_bar
             
+            # 设置筛选回调
+            self.nav_bar.set_filter_callback(self.on_filter_changed)
+            
             # 更新路径显示
             if self.folder_path:
                 self.path_var.set(self.folder_path)
@@ -372,6 +375,33 @@ class PhotoAlbumApp:
         except Exception as e:
             print(f"打开设置对话框失败: {e}")
             messagebox.showerror("错误", f"无法打开设置对话框: {str(e)}")
+    
+    def on_filter_changed(self, filter_value):
+        """处理筛选条件变化"""
+        try:
+            print(f"筛选条件变化: {filter_value}")
+            
+            # 应用筛选到相册网格
+            if self.album_grid:
+                self.album_grid.apply_filter(filter_value)
+                
+                # 更新状态栏显示筛选统计
+                if self.status_bar:
+                    stats = self.album_grid.get_filter_stats()
+                    current_count = len(self.album_grid.albums) if self.album_grid.albums else 0
+                    total_count = stats.get("全部", 0)
+                    
+                    if filter_value == "全部":
+                        filter_text = f"显示全部 {total_count} 个相册"
+                    else:
+                        filter_text = f"筛选: {filter_value} ({current_count}/{total_count})"
+                    
+                    self.status_bar.set_status(filter_text)
+                    
+        except Exception as e:
+            print(f"处理筛选条件变化时出错: {e}")
+            import traceback
+            traceback.print_exc()
 
     def on_closing(self):
         """窗口关闭时保存配置并清理资源"""

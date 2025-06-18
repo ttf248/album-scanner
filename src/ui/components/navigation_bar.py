@@ -19,6 +19,11 @@ class NavigationBar:
         self.home_callback = None  # 将由app_manager设置
         self.settings_callback = None  # 将由app_manager设置
         
+        # 筛选相关变量
+        self.filter_var = None
+        self.filter_combobox = None
+        self.filter_callback = None  # 筛选回调函数
+        
         # 使用传入的样式管理器或创建新实例
         if style_manager:
             self.style_manager = style_manager
@@ -364,6 +369,53 @@ class NavigationBar:
                 shortcut_label.pack(pady=(2, 0))
             
             self.buttons.append(btn)
+        
+        # 创建筛选区域
+        filter_frame = tk.Frame(parent, bg=self.style_manager.colors['card_bg'])
+        filter_frame.pack(side='right', padx=(12, 0))
+        
+        # 筛选标签
+        filter_label = tk.Label(filter_frame,
+                               text="🔽 筛选:",
+                               font=self.style_manager.fonts['caption'],
+                               bg=self.style_manager.colors['card_bg'],
+                               fg=self.style_manager.colors['text_secondary'])
+        filter_label.pack(side='left', padx=(0, 8))
+        
+        # 筛选下拉菜单
+        self.filter_var = tk.StringVar(value="全部")
+        filter_options = ["全部", "📚 合集", "🧠 智能分组", "📖 单独相册"]
+        
+        self.filter_combobox = ttk.Combobox(filter_frame,
+                                           textvariable=self.filter_var,
+                                           values=filter_options,
+                                           state="readonly",
+                                           width=12,
+                                           font=self.style_manager.fonts['caption'])
+        self.filter_combobox.pack(side='left')
+        
+        # 绑定筛选事件
+        self.filter_combobox.bind('<<ComboboxSelected>>', self._on_filter_changed)
+    
+    def _on_filter_changed(self, event=None):
+        """处理筛选变化事件"""
+        try:
+            if self.filter_callback:
+                filter_value = self.filter_var.get()
+                self.filter_callback(filter_value)
+                log_info(f"筛选条件已更改为: {filter_value}", 'ui.navigation')
+        except Exception as e:
+            log_error(f"处理筛选变化时出错: {e}", 'ui.navigation')
+    
+    def set_filter_callback(self, callback):
+        """设置筛选回调函数"""
+        self.filter_callback = callback
+    
+    def get_current_filter(self):
+        """获取当前筛选条件"""
+        if self.filter_var:
+            return self.filter_var.get()
+        return "全部"
     
     def create_path_display(self, parent):
         """创建路径显示区域"""

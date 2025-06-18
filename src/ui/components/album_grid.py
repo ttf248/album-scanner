@@ -22,6 +22,10 @@ class AlbumGrid:
         self.is_favorite = None  # 由外部设置
         self.nav_bar = None  # 导航栏引用
         
+        # 筛选相关
+        self.all_albums = []  # 存储所有相册数据
+        self.current_filter = "全部"  # 当前筛选条件
+        
         # 使用传入的样式管理器或创建新实例
         if style_manager:
             self.style_manager = style_manager
@@ -463,9 +467,26 @@ class AlbumGrid:
     def update_albums(self, albums):
         """更新漫画显示"""
         try:
-            self.albums = albums
+            # 保存所有相册数据
+            self.all_albums = albums or []
             
             print(f"AlbumGrid.update_albums 被调用，albums数量: {len(albums) if albums else 0}")
+            
+            # 应用当前筛选条件
+            filtered_albums = self._apply_filter(self.all_albums, self.current_filter)
+            
+            # 更新显示
+            self._update_display(filtered_albums)
+            
+        except Exception as e:
+            print(f"更新漫画显示时出错: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _update_display(self, albums):
+        """更新显示内容"""
+        try:
+            self.albums = albums
             
             # 清除现有显示
             if self.scrollable_frame:
@@ -487,9 +508,68 @@ class AlbumGrid:
             self._create_modern_album_cards(albums)
             
         except Exception as e:
-            print(f"更新漫画显示时出错: {e}")
+            print(f"更新显示内容时出错: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _apply_filter(self, albums, filter_type):
+        """应用筛选条件"""
+        if not albums or filter_type == "全部":
+            return albums
+        
+        filtered_albums = []
+        
+        for album in albums:
+            album_type = album.get('type', 'single')
+            
+            if filter_type == "📚 合集":
+                # 筛选合集类型
+                if album_type == 'collection':
+                    filtered_albums.append(album)
+            elif filter_type == "🧠 智能分组":
+                # 筛选智能分组类型
+                if album_type == 'smart_collection':
+                    filtered_albums.append(album)
+            elif filter_type == "📖 单独相册":
+                # 筛选单独相册类型
+                if album_type == 'single':
+                    filtered_albums.append(album)
+        
+        print(f"筛选结果: {filter_type} -> {len(filtered_albums)} 个相册")
+        return filtered_albums
+    
+    def apply_filter(self, filter_type):
+        """应用筛选条件（外部调用）"""
+        try:
+            self.current_filter = filter_type
+            print(f"应用筛选条件: {filter_type}")
+            
+            # 重新筛选并显示
+            filtered_albums = self._apply_filter(self.all_albums, filter_type)
+            self._update_display(filtered_albums)
+            
+        except Exception as e:
+            print(f"应用筛选条件时出错: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def get_filter_stats(self):
+        """获取筛选统计信息"""
+        if not self.all_albums:
+            return {"全部": 0, "📚 合集": 0, "🧠 智能分组": 0, "📖 单独相册": 0}
+        
+        stats = {"全部": len(self.all_albums), "📚 合集": 0, "🧠 智能分组": 0, "📖 单独相册": 0}
+        
+        for album in self.all_albums:
+            album_type = album.get('type', 'single')
+            if album_type == 'collection':
+                stats["📚 合集"] += 1
+            elif album_type == 'smart_collection':
+                stats["🧠 智能分组"] += 1
+            elif album_type == 'single':
+                stats["📖 单独相册"] += 1
+        
+        return stats
     
     def _start_cover_preload(self, albums):
         """启动封面预加载"""
