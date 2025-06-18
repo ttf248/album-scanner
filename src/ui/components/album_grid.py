@@ -520,7 +520,7 @@ class AlbumGrid:
         filtered_albums = []
         
         for album in albums:
-            album_type = album.get('type', 'single')
+            album_type = album.get('type', 'album')
             
             if filter_type == "📚 合集":
                 # 筛选合集类型
@@ -532,7 +532,7 @@ class AlbumGrid:
                     filtered_albums.append(album)
             elif filter_type == "📖 单独相册":
                 # 筛选单独相册类型
-                if album_type == 'single':
+                if album_type == 'album':
                     filtered_albums.append(album)
         
         print(f"筛选结果: {filter_type} -> {len(filtered_albums)} 个相册")
@@ -561,12 +561,12 @@ class AlbumGrid:
         stats = {"全部": len(self.all_albums), "📚 合集": 0, "🧠 智能分组": 0, "📖 单独相册": 0}
         
         for album in self.all_albums:
-            album_type = album.get('type', 'single')
+            album_type = album.get('type', 'album')
             if album_type == 'collection':
                 stats["📚 合集"] += 1
             elif album_type == 'smart_collection':
                 stats["🧠 智能分组"] += 1
-            elif album_type == 'single':
+            elif album_type == 'album':
                 stats["📖 单独相册"] += 1
         
         return stats
