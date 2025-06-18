@@ -70,6 +70,8 @@ class StyleManager:
             'button_secondary_hover': '#E9ECEF',
             'button_danger': '#E74C3C',    # 危险按钮
             'button_danger_hover': '#C0392B',
+            'button_collection': '#8E44AD', # 合集按钮 - 紫色
+            'button_collection_hover': '#7D3C98',
             
             # 输入框
             'input_bg': '#FFFFFF',
@@ -216,6 +218,16 @@ class StyleManager:
                 'bg': self.colors['button_danger'],
                 'fg': self.colors['text_white'],
                 'activebackground': self.colors['button_danger_hover'],
+                'activeforeground': self.colors['text_white'],
+                'font': self.fonts['button'],
+                'relief': 'flat',
+                'borderwidth': 0,
+                'cursor': 'hand2'
+            },
+            'collection': {
+                'bg': self.colors['button_collection'],
+                'fg': self.colors['text_white'],
+                'activebackground': self.colors['button_collection_hover'],
                 'activeforeground': self.colors['text_white'],
                 'font': self.fonts['button'],
                 'relief': 'flat',

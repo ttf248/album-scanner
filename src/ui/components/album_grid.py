@@ -941,14 +941,19 @@ class AlbumGrid:
             button_frame.pack(fill='x', padx=self.card_padding, pady=(0, self.card_padding))
             button_frame.bind("<Button-3>", show_menu)
             
-            # 打开按钮 - 根据类型显示不同文本
-            open_btn_style = self.style_manager.get_button_style('primary')
+            # 打开按钮 - 根据类型显示不同文本和颜色
             if album_type == 'collection':
                 btn_text = '📚 查看合集'
                 open_command = lambda: self._open_collection(album)
+                open_btn_style = self.style_manager.get_button_style('collection')
+                hover_color = self.style_manager.colors['button_collection_hover']
+                normal_color = self.style_manager.colors['button_collection']
             else:
                 btn_text = '📂 打开漫画'
                 open_command = lambda: self.open_callback(album_path)
+                open_btn_style = self.style_manager.get_button_style('primary')
+                hover_color = self.style_manager.colors['button_primary_hover']
+                normal_color = self.style_manager.colors['button_primary']
                 
             open_btn = tk.Button(button_frame, 
                                text=btn_text,
@@ -960,8 +965,8 @@ class AlbumGrid:
             
             self.style_manager.create_hover_effect(
                 open_btn,
-                self.style_manager.colors['button_primary_hover'],
-                self.style_manager.colors['button_primary']
+                hover_color,
+                normal_color
             )
             
             # 收藏按钮
