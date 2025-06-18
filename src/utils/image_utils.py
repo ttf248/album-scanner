@@ -13,7 +13,7 @@ class ImageProcessor:
     
     @classmethod
     def scan_albums(cls, root_path):
-        """扫描漫画文件夹，正确处理Unicode路径，支持递归扫描"""
+        """扫描漫画文件夹，支持合集功能"""
         albums = []
         
         try:
@@ -24,8 +24,49 @@ class ImageProcessor:
                 print(f"路径不存在: {root_path}")
                 return albums
             
-            # 递归遍历所有子文件夹
-            cls._scan_folder_recursive(root_path, albums)
+            # 扫描根目录的直接子文件夹
+            for item in root_path.iterdir():
+                if item.is_dir():
+                    # 检查这个文件夹是否包含图片（作为单个相册）
+                    image_files = cls.get_image_files(str(item))
+                    
+                    if image_files:
+                        # 这是一个包含图片的相册
+                        folder_size = cls.get_folder_size(image_files)
+                        album_info = {
+                            'path': str(item),
+                            'name': item.name,
+                            'image_files': image_files,
+                            'cover_image': image_files[0],
+                            'image_count': len(image_files),
+                            'folder_size': folder_size,
+                            'type': 'album'  # 标记为单个相册
+                        }
+                        albums.append(album_info)
+                    else:
+                        # 检查是否包含子相册（作为合集）
+                        sub_albums = []
+                        cls._scan_folder_recursive(item, sub_albums)
+                        
+                        if sub_albums:
+                            # 这是一个合集，包含多个相册
+                            total_images = sum(len(album['image_files']) for album in sub_albums)
+                            total_size_bytes = sum(cls._parse_size_to_bytes(album['folder_size']) for album in sub_albums)
+                            
+                            # 使用第一个相册的第一张图作为合集封面
+                            cover_image = sub_albums[0]['cover_image'] if sub_albums else None
+                            
+                            collection_info = {
+                                'path': str(item),
+                                'name': item.name,
+                                'albums': sub_albums,  # 包含的相册列表
+                                'cover_image': cover_image,
+                                'album_count': len(sub_albums),
+                                'image_count': total_images,
+                                'folder_size': cls.format_size(total_size_bytes),
+                                'type': 'collection'  # 标记为合集
+                            }
+                            albums.append(collection_info)
                         
         except Exception as e:
             print(f"扫描根目录时出错 {root_path}: {e}")
@@ -91,6 +132,27 @@ class ImageProcessor:
             size_bytes /= 1024.0
             i += 1
         return f"{size_bytes:.1f}{size_names[i]}"
+    
+    @classmethod
+    def _parse_size_to_bytes(cls, size_str):
+        """将格式化的大小字符串转换回字节数"""
+        try:
+            if not size_str or size_str == "0B":
+                return 0
+            
+            # 提取数字和单位
+            import re
+            match = re.match(r'([0-9.]+)([A-Z]+)', size_str.upper())
+            if not match:
+                return 0
+            
+            value = float(match.group(1))
+            unit = match.group(2)
+            
+            multipliers = {'B': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3}
+            return int(value * multipliers.get(unit, 1))
+        except Exception:
+            return 0
     
     @classmethod
     def get_image_files(cls, folder_path):

@@ -639,6 +639,56 @@ class AlbumGrid:
             print(f"查找封面图片失败 {album_path}: {e}")
             callback(None)
     
+    def _load_specific_cover_image(self, image_path, callback, size=(320, 350)):
+        """加载指定的封面图片"""
+        try:
+            if not image_path or not os.path.exists(image_path):
+                callback(None)
+                return
+            
+            def on_success(photo):
+                callback(photo)
+            
+            def on_error(error):
+                print(f"加载指定封面失败 {image_path}: {error}")
+                callback(None)
+            
+            # 使用缓存系统异步加载
+            self.image_cache.load_image_async(
+                image_path,
+                size,
+                self.parent,
+                on_success,
+                on_error
+            )
+                
+        except Exception as e:
+            print(f"加载指定封面图片失败 {image_path}: {e}")
+            callback(None)
+    
+    def _open_collection(self, collection):
+        """打开合集，显示合集内的相册列表"""
+        try:
+            albums = collection.get('albums', [])
+            if not albums:
+                print("合集中没有相册")
+                return
+            
+            # 更新当前显示的相册列表为合集内的相册
+            self.albums = albums
+            self._create_modern_album_cards(albums)
+            
+            # 如果有导航栏，更新导航状态
+            if hasattr(self, 'nav_bar') and self.nav_bar:
+                collection_name = collection.get('name', '未知合集')
+                # 这里可以添加面包屑导航或返回按钮的逻辑
+                print(f"进入合集: {collection_name}")
+            
+        except Exception as e:
+            print(f"打开合集失败: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def _create_modern_album_cards(self, albums):
         """创建现代化漫画卡片 - 优化性能"""
         try:
@@ -728,11 +778,24 @@ class AlbumGrid:
             print(f"分批创建卡片时出错: {e}")
     
     def _create_modern_album_card(self, parent, album):
-        """创建现代化单个漫画卡片"""
+        """创建现代化单个漫画卡片 - 支持合集和相册"""
         try:
             album_path = album['path']
             album_name = album['name']
-            image_count = album.get('image_count', 0)
+            album_type = album.get('type', 'album')  # 'album' 或 'collection'
+            
+            # 根据类型获取不同的信息
+            if album_type == 'collection':
+                # 合集信息
+                album_count = album.get('album_count', 0)
+                image_count = album.get('image_count', 0)
+                display_text = f'{album_count} 个相册'
+                icon = '📚'  # 合集图标
+            else:
+                # 单个相册信息
+                image_count = album.get('image_count', 0)
+                display_text = f'{image_count} 张图片'
+                icon = '🖼️'  # 相册图标
             
             # 卡片主容器 - 固定尺寸420x560
             card = tk.Frame(parent, 
@@ -786,10 +849,23 @@ class AlbumGrid:
             # 绑定右键菜单到封面标签
             cover_label.bind("<Button-3>", show_menu)
             
-            # 异步加载封面
-            self._load_cover_image(album_path, 
-                                 lambda photo, label=cover_label: self._update_cover(label, photo),
-                                 size=(320, 350))
+            # 异步加载封面 - 根据类型选择不同的加载方式
+            if album_type == 'collection':
+                # 合集使用第一个相册的封面
+                cover_image = album.get('cover_image')
+                if cover_image:
+                    self._load_specific_cover_image(cover_image, 
+                                                   lambda photo, label=cover_label: self._update_cover(label, photo),
+                                                   size=(320, 350))
+                else:
+                    cover_label.configure(text='📚\n合集', 
+                                        font=self.style_manager.fonts['body'],
+                                        fg=self.style_manager.colors['text_tertiary'])
+            else:
+                # 单个相册正常加载
+                self._load_cover_image(album_path, 
+                                     lambda photo, label=cover_label: self._update_cover(label, photo),
+                                     size=(320, 350))
             
             # 信息区域 - 限制高度确保按钮可见
             info_frame = tk.Frame(card, bg=self.style_manager.colors['card_bg'], height=120)
@@ -821,21 +897,31 @@ class AlbumGrid:
             # 绑定右键菜单到统计信息
             stats_frame.bind("<Button-3>", show_menu)
             
-            # 图片数量
+            # 统计信息 - 根据类型显示不同内容
             count_icon = tk.Label(stats_frame, 
-                                text="🖼️",
+                                text=icon,
                                 font=self.style_manager.fonts['caption'],
                                 bg=self.style_manager.colors['card_bg'])
             count_icon.pack(side='left')
             count_icon.bind("<Button-3>", show_menu)
             
             count_label = tk.Label(stats_frame, 
-                                 text=f'{image_count} 张图片',
+                                 text=display_text,
                                  font=self.style_manager.fonts['caption'],
                                  bg=self.style_manager.colors['card_bg'], 
                                  fg=self.style_manager.colors['text_secondary'])
             count_label.pack(side='left', padx=(4, 0))
             count_label.bind("<Button-3>", show_menu)
+            
+            # 如果是合集，显示总图片数
+            if album_type == 'collection' and image_count > 0:
+                total_label = tk.Label(stats_frame, 
+                                     text=f'共 {image_count} 张图片',
+                                     font=self.style_manager.fonts['small'],
+                                     bg=self.style_manager.colors['card_bg'], 
+                                     fg=self.style_manager.colors['text_tertiary'])
+                total_label.pack(side='right')
+                total_label.bind("<Button-3>", show_menu)
             
             # 路径显示
             path_label = tk.Label(info_frame, 
@@ -855,11 +941,18 @@ class AlbumGrid:
             button_frame.pack(fill='x', padx=self.card_padding, pady=(0, self.card_padding))
             button_frame.bind("<Button-3>", show_menu)
             
-            # 打开按钮
+            # 打开按钮 - 根据类型显示不同文本
             open_btn_style = self.style_manager.get_button_style('primary')
+            if album_type == 'collection':
+                btn_text = '📚 查看合集'
+                open_command = lambda: self._open_collection(album)
+            else:
+                btn_text = '📂 打开漫画'
+                open_command = lambda: self.open_callback(album_path)
+                
             open_btn = tk.Button(button_frame, 
-                               text='📂 打开漫画',
-                               command=lambda: self.open_callback(album_path),
+                               text=btn_text,
+                               command=open_command,
                                **open_btn_style,
                                padx=12, 
                                pady=6)

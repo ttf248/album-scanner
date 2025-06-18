@@ -54,27 +54,47 @@ class AlbumScannerService:
         self.app.cached_scan_path = None
     
     def _display_scan_results(self):
-        """显示扫描结果"""
+        """显示扫描结果 - 支持合集和相册"""
         self.app.album_grid.display_albums(self.app.albums)
-        total_images = sum(len(album['image_files']) for album in self.app.albums)
         
-        # 显示扫描结果统计
+        # 统计合集和相册信息
+        collections = [item for item in self.app.albums if item.get('type') == 'collection']
+        albums = [item for item in self.app.albums if item.get('type') == 'album']
+        
+        # 计算总图片数
+        total_images = 0
+        for item in self.app.albums:
+            if item.get('type') == 'collection':
+                total_images += item.get('image_count', 0)
+            else:
+                total_images += len(item.get('image_files', []))
+        
+        # 构建状态信息
+        status_parts = []
+        if collections:
+            status_parts.append(f"{len(collections)} 个合集")
+        if albums:
+            status_parts.append(f"{len(albums)} 个相册")
+        
+        status_text = "扫描完成，找到 " + "、".join(status_parts)
         if len(self.app.albums) > 10:
-            self.app.status_bar.set_status(f"扫描完成，找到 {len(self.app.albums)} 个漫画（支持滚动浏览）")
-        else:
-            self.app.status_bar.set_status(f"扫描完成，找到 {len(self.app.albums)} 个漫画")
+            status_text += "（支持滚动浏览）"
+        
+        self.app.status_bar.set_status(status_text)
         self.app.status_bar.set_info(f"共 {total_images} 张图片")
         
-        # 如果漫画很多，提示用户可以滚动和使用快捷键
+        # 如果项目很多，提示用户可以滚动和使用快捷键
         if len(self.app.albums) > 15:
-            messagebox.showinfo("扫描完成", 
-                f"找到 {len(self.app.albums)} 个漫画！\n\n"
-                "📋 浏览提示：\n"
-                "• 使用鼠标滚轮浏览所有漫画\n"
-                "• 🏠 首页按钮返回扫描结果\n"
-                "• Ctrl+R 查看最近浏览的漫画\n"
-                "• Ctrl+F 管理收藏的漫画\n"
-                "• F5 重新扫描当前文件夹")
+            tip_text = f"找到 {len(self.app.albums)} 个项目！\n\n"
+            if collections:
+                tip_text += "📚 合集功能：\n• 点击合集可查看其中的相册\n\n"
+            tip_text += ("📋 浏览提示：\n"
+                        "• 使用鼠标滚轮浏览所有内容\n"
+                        "• 🏠 首页按钮返回扫描结果\n"
+                        "• Ctrl+R 查看最近浏览的漫画\n"
+                        "• Ctrl+F 管理收藏的漫画\n"
+                        "• F5 重新扫描当前文件夹")
+            messagebox.showinfo("扫描完成", tip_text)
     
     def _handle_scan_error(self, error):
         """处理扫描错误"""
